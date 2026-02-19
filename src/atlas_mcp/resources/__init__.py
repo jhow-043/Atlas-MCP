@@ -1,1 +1,3 @@
-"""Registry e handlers de MCP Resources."""
+"""MCP Resources registry and handlers."""
+
+from __future__ import annotations

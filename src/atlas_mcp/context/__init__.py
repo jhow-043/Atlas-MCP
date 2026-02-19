@@ -1,1 +1,3 @@
-"""Camadas de contexto (Core, Workflow, Decision)."""
+"""Context layers (Core, Workflow, Decision)."""
+
+from __future__ import annotations
