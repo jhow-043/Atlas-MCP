@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 import atlas_mcp
@@ -30,14 +32,22 @@ class TestPackageInit:
 class TestMain:
     """Tests for the __main__ entry point."""
 
-    def test_should_run_main_without_error(self) -> None:
+    @patch("atlas_mcp.__main__.ProtocolHandler")
+    def test_should_run_main_without_error(self, mock_handler_cls: MagicMock) -> None:
         """Validate that main() executes without raising exceptions."""
+        mock_handler_cls.return_value.run = MagicMock()
         main()
 
-    def test_should_log_startup_message(self, caplog: pytest.LogCaptureFixture) -> None:
+    @patch("atlas_mcp.__main__.ProtocolHandler")
+    def test_should_log_startup_message(
+        self,
+        mock_handler_cls: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
         """Validate that main() logs a startup message with version."""
         import logging
 
+        mock_handler_cls.return_value.run = MagicMock()
         with caplog.at_level(logging.INFO):
             main()
         assert "Atlas MCP Server" in caplog.text
