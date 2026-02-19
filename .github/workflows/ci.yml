@@ -27,6 +27,7 @@ jobs:
           version: "latest"
           enable-cache: true
           cache-dependency-glob: "**/pyproject.toml"
+          ignore-nothing-to-cache: true
 
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
