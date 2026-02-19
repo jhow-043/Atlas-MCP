@@ -1,1 +1,3 @@
-"""MCP Server setup e inicialização."""
+"""MCP Server setup and initialization."""
+
+from __future__ import annotations

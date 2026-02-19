@@ -151,18 +151,18 @@ main ← develop ← phase/P# ← TIPO/P#-D#
 ### Commits — Conventional Commits
 
 ```
-<tipo>(<escopo>): <descrição em inglês>
+<tipo>(<escopo>): <descrição em português>
 ```
 
 Com escopo **obrigatório** `P#-D#`:
 
 ```
-feat(P1-D3): implement ResourceRegistry with static resources
-fix(P2-D1): fix JSON-RPC id validation in ProtocolHandler
-docs(P0-D4): create README.md with badges and quick start
-chore(P0-D3): configure pyproject.toml with dependencies
-ci(P0-D6): configure GitHub Actions CI pipeline
-test(P1-D6): add unit tests for ProtocolHandler
+feat(P1-D3): implementar ResourceRegistry com resources estáticos
+fix(P2-D1): corrigir validação de id no JSON-RPC
+docs(P0-D4): criar README.md com badges e quick start
+chore(P0-D3): configurar pyproject.toml com dependências
+ci(P0-D6): configurar pipeline GitHub Actions CI
+test(P1-D6): adicionar testes unitários do ProtocolHandler
 ```
 
 Tipos: `feat`, `fix`, `docs`, `chore`, `ci`, `test`, `refactor`, `style`, `perf`

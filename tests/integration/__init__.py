@@ -1,1 +1,3 @@
-"""Testes de integração."""
+"""Integration tests."""
+
+from __future__ import annotations

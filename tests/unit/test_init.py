@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import logging
+import pytest
 
 import atlas_mcp
 from atlas_mcp.__main__ import main
@@ -34,8 +34,10 @@ class TestMain:
         """Validate that main() executes without raising exceptions."""
         main()
 
-    def test_should_log_startup_message(self, caplog: logging.LogRecord) -> None:
+    def test_should_log_startup_message(self, caplog: pytest.LogCaptureFixture) -> None:
         """Validate that main() logs a startup message with version."""
+        import logging
+
         with caplog.at_level(logging.INFO):
             main()
         assert "Atlas MCP Server" in caplog.text

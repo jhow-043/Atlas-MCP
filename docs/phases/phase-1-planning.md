@@ -134,7 +134,7 @@ Atlas-MCP/
 | MCP SDK | `mcp` (SDK oficial Python) | latest |
 | Testes | pytest + pytest-asyncio | latest |
 | Lint + Formatação | Ruff | latest |
-| Type checking | mypy (opcional) | latest |
+| Type checking | mypy (obrigatório, strict mode) | latest |
 
 ---
 
