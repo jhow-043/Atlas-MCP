@@ -1,8 +1,9 @@
 # Fase 1 — Fundação e Protocolo MCP
 
-**Status:** PROPOSTO  
+**Status:** APROVADO  
 **Data:** 2026-02-19  
-**Versão:** 1.1  
+**Versão:** 2.0  
+**Repositório:** `https://github.com/jhow-043/Atlas-MCP.git`
 
 ---
 
@@ -23,16 +24,16 @@ Ao final desta fase, o servidor deve conectar com o **MCP Inspector** e responde
 
 ## 2. Tarefas (8/8)
 
-| # | Tarefa | Descrição | Output Esperado |
-|---|--------|-----------|-----------------|
-| 1 | **Validar setup da Fase 0** | Verificar que `atlas_mcp` está funcional: `uv sync`, `ruff check`, `pytest` passam. Ajustar se necessário. | Ambiente validado e pronto |
-| 2 | **Implementar ProtocolHandler** | Criar camada de parse/serialize JSON-RPC 2.0 usando o SDK MCP. Configurar `Server` com transporte stdio. | Servidor inicializa e aceita conexão |
-| 3 | **Implementar capability negotiation** | Configurar `initialize`/`initialized` com declaração de capabilities: `resources`, `tools` | Handshake MCP funcional via Inspector |
-| 4 | **Implementar ResourceRegistry** | Criar registry de resources com ao menos um resource estático (`context://core/stack`) retornando dados mock da stack tecnológica | `resources/list` e `resources/read` funcionais |
-| 5 | **Implementar ToolExecutor** | Criar executor de tools com ao menos uma tool mock (`search_context`) com input schema validado | `tools/list` e `tools/call` funcionais |
-| 6 | **Implementar error handling** | Tratar erros conforme JSON-RPC 2.0 (MethodNotFound, InvalidParams, InternalError). Respostas de erro padronizadas. | Erros retornados com códigos corretos |
-| 7 | **Setup de testes automatizados** | Configurar pytest + pytest-asyncio. Criar testes unitários para ProtocolHandler, ResourceRegistry e ToolExecutor. | Suite de testes com cobertura mín. 80% para protocolo |
-| 8 | **Documentação de setup** | Criar README.md com instruções de instalação, build, execução e teste. Incluir pré-requisitos. | README completo e funcional |
+| # | Tipo | Branch | Tarefa | Output |
+|---|------|--------|--------|--------|
+| D1 | `INF` | `INF/P1-D1` | Validar setup da Fase 0: `uv sync`, `ruff check .`, `ruff format --check .`, `mypy src/`, `pytest` passam. Ajustar se necessário. | Todos os comandos de validação passam sem erros |
+| D2 | `FET` | `FET/P1-D2` | Implementar `ProtocolHandler` — camada de parse/serialize JSON-RPC 2.0 usando o SDK MCP. Configurar `Server` com transporte stdio. | Servidor inicializa e aceita conexão via stdio |
+| D3 | `FET` | `FET/P1-D3` | Implementar capability negotiation — configurar `initialize`/`initialized` com declaração de capabilities: `resources`, `tools` | Handshake MCP funcional via Inspector |
+| D4 | `FET` | `FET/P1-D4` | Implementar `ResourceRegistry` — registry de resources com ao menos um resource estático (`context://core/stack`) retornando dados mock da stack tecnológica | `resources/list` e `resources/read` funcionais |
+| D5 | `FET` | `FET/P1-D5` | Implementar `ToolExecutor` — executor de tools com ao menos uma tool mock (`search_context`) com input schema validado | `tools/list` e `tools/call` funcionais |
+| D6 | `FET` | `FET/P1-D6` | Implementar error handling — tratar erros conforme JSON-RPC 2.0 (MethodNotFound, InvalidParams, InternalError). Respostas de erro padronizadas. | Erros retornados com códigos corretos |
+| D7 | `TST` | `TST/P1-D7` | Escrever testes unitários para `ProtocolHandler`, `ResourceRegistry` e `ToolExecutor` com pytest + pytest-asyncio | Suite de testes com cobertura ≥ 80% para protocolo |
+| D8 | `DOC` | `DOC/P1-D8` | Atualizar README.md com instruções de instalação, build, execução e teste. Incluir pré-requisitos. | README completo e funcional |
 
 ---
 
@@ -40,24 +41,24 @@ Ao final desta fase, o servidor deve conectar com o **MCP Inspector** e responde
 
 | Tarefa | Depende de |
 |--------|------------|
-| 2 (ProtocolHandler) | 1 (Setup do projeto) |
-| 3 (Capability negotiation) | 2 (ProtocolHandler) |
-| 4 (ResourceRegistry) | 2 (ProtocolHandler) |
-| 5 (ToolExecutor) | 2 (ProtocolHandler) |
-| 6 (Error handling) | 2 (ProtocolHandler) |
-| 7 (Testes) | 4, 5, 6 |
-| 8 (Documentação) | 1, 2, 3 |
+| D2 (ProtocolHandler) | D1 (Setup validado) |
+| D3 (Capability negotiation) | D2 (ProtocolHandler) |
+| D4 (ResourceRegistry) | D2 (ProtocolHandler) |
+| D5 (ToolExecutor) | D2 (ProtocolHandler) |
+| D6 (Error handling) | D2 (ProtocolHandler) |
+| D7 (Testes) | D4, D5, D6 |
+| D8 (Documentação) | D1, D2, D3 |
 
 **Grafo de dependências:**
 
 ```
-[1] Setup
- └──→ [2] ProtocolHandler
-       ├──→ [3] Capability Negotiation
-       ├──→ [4] ResourceRegistry ──→ [7] Testes
-       ├──→ [5] ToolExecutor ─────→ [7] Testes
-       └──→ [6] Error Handling ───→ [7] Testes
- └──→ [8] Documentação (parcial, finalizada após 3)
+[D1] Setup
+ └──→ [D2] ProtocolHandler
+       ├──→ [D3] Capability Negotiation
+       ├──→ [D4] ResourceRegistry ──→ [D7] Testes
+       ├──→ [D5] ToolExecutor ─────→ [D7] Testes
+       └──→ [D6] Error Handling ───→ [D7] Testes
+ └──→ [D8] Documentação (parcial, finalizada após D3)
 ```
 
 ---
@@ -66,13 +67,15 @@ Ao final desta fase, o servidor deve conectar com o **MCP Inspector** e responde
 
 | Artefato | Localização |
 |----------|-------------|
-| Código-fonte do servidor | `src/atlas_mcp/` |
-| Configuração do projeto | `pyproject.toml` |
-| Configuração de lint/format | `ruff.toml` |
-| Lock file | `uv.lock` |
-| Testes unitários | `tests/` |
-| Documentação | `README.md` |
-| Entry point | `src/atlas_mcp/__main__.py` |
+| ProtocolHandler | `src/atlas_mcp/protocol/handler.py` |
+| ResourceRegistry | `src/atlas_mcp/resources/registry.py` |
+| Resource core/stack | `src/atlas_mcp/resources/core_stack.py` |
+| ToolExecutor | `src/atlas_mcp/tools/executor.py` |
+| Tool search_context | `src/atlas_mcp/tools/search_context.py` |
+| Server setup (atualizado) | `src/atlas_mcp/server.py` |
+| Entry point (atualizado) | `src/atlas_mcp/__main__.py` |
+| Testes unitários | `tests/unit/test_handler.py`, `tests/unit/test_registry.py`, `tests/unit/test_executor.py` |
+| Documentação (atualizada) | `README.md` |
 
 ### Estrutura de diretórios esperada:
 
@@ -97,9 +100,12 @@ Atlas-MCP/
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py                   # Fixtures compartilhadas
-│   ├── test_handler.py
-│   ├── test_registry.py
-│   └── test_executor.py
+│   └── unit/
+│       ├── __init__.py
+│       ├── test_init.py              # Smoke tests (Fase 0)
+│       ├── test_handler.py           # Testes do ProtocolHandler
+│       ├── test_registry.py          # Testes do ResourceRegistry
+│       └── test_executor.py          # Testes do ToolExecutor
 ├── pyproject.toml
 ├── ruff.toml
 ├── uv.lock
@@ -121,7 +127,9 @@ Atlas-MCP/
 | 7 | `tools/call` com input válido retorna resultado mock | Teste automatizado |
 | 8 | `tools/call` com input inválido retorna erro JSON-RPC correto | Teste automatizado |
 | 9 | Todos os testes passam com `uv run pytest` | Execução da suite |
-| 10 | README contém instruções suficientes para execução independente | Revisão manual |
+| 10 | `uv run mypy src/` passa sem erros | Execução direta |
+| 11 | `uv run ruff check .` e `uv run ruff format --check .` passam | Execução direta |
+| 12 | README contém instruções suficientes para execução independente | Revisão manual |
 
 ---
 
@@ -145,6 +153,7 @@ Atlas-MCP/
 | Incompatibilidade de versão do SDK MCP Python | Fixar versão no `pyproject.toml`. Testar com Inspector antes de avançar. |
 | Complexidade do JSON-RPC 2.0 manual | Usar SDK oficial Python (`mcp`) que abstrai a camada de protocolo. |
 | Compatibilidade de versão Python | Exigir Python ≥ 3.12. Usar `uv` para gerenciamento de ambiente isolado. |
+| Type stubs incompletos do SDK `mcp` com mypy strict | Configurar overrides de mypy no `pyproject.toml` para o pacote `mcp` se necessário (`disallow_untyped_calls = false` por módulo). Avaliar uso de `type: ignore` pontual com justificativa. |
 
 ---
 
@@ -156,4 +165,4 @@ Atlas-MCP/
 
 ---
 
-> **Próximo passo:** Este documento deve ser revisado e aprovado antes do início da implementação.
+> **Próximo passo:** Criar branch `phase/P1` a partir da `develop` e iniciar execução pela tarefa D1.
