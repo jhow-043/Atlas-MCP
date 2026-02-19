@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+
 import atlas_mcp
+from atlas_mcp.__main__ import main
 
 
 class TestPackageInit:
@@ -22,3 +25,18 @@ class TestPackageInit:
     def test_should_match_expected_version(self) -> None:
         """Validate current version is 0.0.1."""
         assert atlas_mcp.__version__ == "0.0.1"
+
+
+class TestMain:
+    """Tests for the __main__ entry point."""
+
+    def test_should_run_main_without_error(self) -> None:
+        """Validate that main() executes without raising exceptions."""
+        main()
+
+    def test_should_log_startup_message(self, caplog: logging.LogRecord) -> None:
+        """Validate that main() logs a startup message with version."""
+        with caplog.at_level(logging.INFO):
+            main()
+        assert "Atlas MCP Server" in caplog.text
+        assert atlas_mcp.__version__ in caplog.text
