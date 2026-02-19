@@ -1,16 +1,34 @@
 [project]
 name = "atlas-mcp"
 version = "0.0.1"
-description = "MCP Server para contexto estruturado e RAG em projetos de engenharia de software"
+description = "Production-grade MCP Server for structured context and RAG in software engineering projects"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.12"
 authors = [
     {name = "jhow-043"},
 ]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
 dependencies = [
     "mcp",
 ]
+
+[project.urls]
+Homepage = "https://github.com/jhow-043/Atlas-MCP"
+Repository = "https://github.com/jhow-043/Atlas-MCP"
+Issues = "https://github.com/jhow-043/Atlas-MCP/issues"
+Documentation = "https://github.com/jhow-043/Atlas-MCP/tree/main/docs"
+
+[project.scripts]
+atlas-mcp = "atlas_mcp.__main__:main"
 
 [project.optional-dependencies]
 dev = [
@@ -46,6 +64,7 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "@overload",
     "raise NotImplementedError",
+    "from __future__ import annotations",
 ]
 
 [tool.mypy]

@@ -1,1 +1,3 @@
-"""Governança de documentos e ciclo de vida (proposta, revisão, aprovação)."""
+"""Document governance and lifecycle (proposal, review, approval)."""
+
+from __future__ import annotations

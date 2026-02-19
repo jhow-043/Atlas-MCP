@@ -1,1 +1,3 @@
-"""Camada de persistência (DocumentStore, AuditLogger, VersionController)."""
+"""Persistence layer (DocumentStore, AuditLogger, VersionController)."""
+
+from __future__ import annotations

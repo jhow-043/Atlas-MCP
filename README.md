@@ -23,7 +23,7 @@ Atlas MCP é um servidor que implementa o [Model Context Protocol (MCP)](https:/
 │  ┌──────┬──────┬─────┐ │
 │  │Resrc.│Tools │Prpts│ │
 │  └──┬───┴──┬───┴──┬──┘ │
-│     │Context Layers│    │
+│     │Context Layers│   │
 │  ┌──┴──────┴──────┴──┐ │
 │  │  Vectorization    │ │
 │  │  (RAG + pgvector) │ │
@@ -115,7 +115,6 @@ Atlas-MCP/
 ## Documentação
 
 - [Contexto do Projeto](docs/architecture/context.md)
-- [Design de Arquitetura](docs/architecture/architecture-design.md)
 - [ADRs](docs/adr/)
 - [Guia de Contribuição](CONTRIBUTING.md)
 - [Política de Branching](.github/governance/branching-policy.md)
