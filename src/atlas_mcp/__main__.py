@@ -1,12 +1,17 @@
-"""Entry point para execução via `python -m atlas_mcp`."""
+"""Entry point for execution via `python -m atlas_mcp`."""
 
-import sys
+from __future__ import annotations
+
+import logging
+
+from atlas_mcp import __version__
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Ponto de entrada principal do Atlas MCP Server."""
-    print("Atlas MCP Server v0.0.1 — em desenvolvimento")
-    sys.exit(0)
+    """Start the Atlas MCP Server."""
+    logger.info("Atlas MCP Server v%s — starting", __version__)
 
 
 if __name__ == "__main__":

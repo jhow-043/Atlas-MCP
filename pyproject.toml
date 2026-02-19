@@ -31,7 +31,22 @@ packages = ["src/atlas_mcp"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --cov=src/atlas_mcp --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+source = ["src/atlas_mcp"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "raise NotImplementedError",
+]
 
 [tool.mypy]
 python_version = "3.12"
