@@ -42,4 +42,4 @@ jobs:
         run: uv run mypy src/
 
       - name: Run tests with pytest
-        run: uv run pytest --cov=src/atlas_mcp --cov-report=term-missing -v
+        run: uv run pytest --cov=src/atlas_mcp --cov-report=term-missing --cov-fail-under=80 -v
