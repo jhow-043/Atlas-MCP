@@ -1,0 +1,190 @@
+"""Tests for the ResourceRegistry and core_stack resource."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+import anyio
+from mcp.client.session import ClientSession
+from mcp.shared.message import SessionMessage
+
+from atlas_mcp.resources.core_stack import (
+    _CORE_STACK_DESCRIPTION,
+    _CORE_STACK_NAME,
+    _CORE_STACK_URI,
+    _STACK_DATA,
+    register_core_stack,
+)
+from atlas_mcp.resources.registry import ResourceRegistry
+from atlas_mcp.server import create_server
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+async def _run_resource_test(callback: Any) -> None:
+    """Set up an in-memory MCP session with resources and call *callback*.
+
+    The server has ``ResourceRegistry.register()`` already applied so
+    that ``resources/list`` and ``resources/read`` return real data.
+    """
+    server = create_server()
+    ResourceRegistry.register(server)
+
+    send_c2s, recv_c2s = anyio.create_memory_object_stream[SessionMessage](1)
+    send_s2c, recv_s2c = anyio.create_memory_object_stream[SessionMessage](1)
+
+    init_options = server._mcp_server.create_initialization_options()
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(
+            server._mcp_server.run,
+            recv_c2s,
+            send_s2c,
+            init_options,
+            True,
+        )
+        async with ClientSession(recv_s2c, send_c2s) as session:
+            await session.initialize()
+            await callback(session)
+            tg.cancel_scope.cancel()
+
+
+# ---------------------------------------------------------------------------
+# TestResourceRegistry
+# ---------------------------------------------------------------------------
+
+
+class TestResourceRegistry:
+    """Tests for the ResourceRegistry class."""
+
+    def test_should_register_resources_on_server(self) -> None:
+        """Validate that register() adds resources to the server."""
+        server = create_server()
+        ResourceRegistry.register(server)
+
+        resources = server._resource_manager.list_resources()
+        assert len(resources) >= 1
+
+    def test_should_register_core_stack_resource(self) -> None:
+        """Validate that context://core/stack appears after registration."""
+        server = create_server()
+        ResourceRegistry.register(server)
+
+        resources = server._resource_manager.list_resources()
+        uris = [str(r.uri) for r in resources]
+        assert _CORE_STACK_URI in uris
+
+    def test_should_allow_direct_core_stack_registration(self) -> None:
+        """Validate that register_core_stack can be called directly."""
+        server = create_server()
+        register_core_stack(server)
+
+        resources = server._resource_manager.list_resources()
+        uris = [str(r.uri) for r in resources]
+        assert _CORE_STACK_URI in uris
+
+
+# ---------------------------------------------------------------------------
+# TestCoreStackResource
+# ---------------------------------------------------------------------------
+
+
+class TestCoreStackResource:
+    """Tests for the context://core/stack resource content."""
+
+    async def test_should_return_valid_json(self) -> None:
+        """Validate that the resource returns valid JSON."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            assert len(result.contents) == 1
+            content = result.contents[0]
+            data = json.loads(content.text)  # type: ignore[union-attr]
+            assert isinstance(data, dict)
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_project_name(self) -> None:
+        """Validate that the JSON contains the project name."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["project"] == "Atlas MCP"
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_language_info(self) -> None:
+        """Validate that the JSON contains language information."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["language"]["name"] == "Python"
+            assert data["language"]["version"] == ">=3.12"
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_database_info(self) -> None:
+        """Validate that the JSON contains database information."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["database"]["name"] == "PostgreSQL"
+            assert "pgvector" in data["database"]["extensions"]
+
+        await _run_resource_test(_assert)
+
+    async def test_should_match_stack_data_constant(self) -> None:
+        """Validate that the resource content matches _STACK_DATA."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data == _STACK_DATA
+
+        await _run_resource_test(_assert)
+
+    async def test_should_have_correct_uri_in_list(self) -> None:
+        """Validate that resources/list contains context://core/stack."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.list_resources()
+            uris = [str(r.uri) for r in result.resources]
+            assert _CORE_STACK_URI in uris
+
+        await _run_resource_test(_assert)
+
+    async def test_should_have_correct_name_in_list(self) -> None:
+        """Validate that the resource name is correct in resources/list."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.list_resources()
+            resource = next(r for r in result.resources if str(r.uri) == _CORE_STACK_URI)
+            assert resource.name == _CORE_STACK_NAME
+
+        await _run_resource_test(_assert)
+
+    async def test_should_have_correct_description_in_list(self) -> None:
+        """Validate that the resource description is correct."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.list_resources()
+            resource = next(r for r in result.resources if str(r.uri) == _CORE_STACK_URI)
+            assert resource.description == _CORE_STACK_DESCRIPTION
+
+        await _run_resource_test(_assert)
+
+    async def test_should_have_json_mime_type(self) -> None:
+        """Validate that the resource MIME type is application/json."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.list_resources()
+            resource = next(r for r in result.resources if str(r.uri) == _CORE_STACK_URI)
+            assert resource.mimeType == "application/json"
+
+        await _run_resource_test(_assert)

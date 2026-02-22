@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from atlas_mcp.resources import ResourceRegistry
 from atlas_mcp.server import create_server
 
 if TYPE_CHECKING:
@@ -41,11 +42,9 @@ class ProtocolHandler:
 
         This method is the single extension point for capability registration.
         It is called automatically during ``__init__`` after server creation.
-
-        In the current phase this is a no-op. Subsequent tasks (D4, D5) will
-        add resource and tool registrations here.
         """
-        logger.info("Capability configuration point — no handlers registered yet")
+        ResourceRegistry.register(self._server)
+        logger.info("Capabilities configured")
 
     @property
     def server(self) -> FastMCP:
