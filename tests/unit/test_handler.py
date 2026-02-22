@@ -30,3 +30,9 @@ class TestProtocolHandler:
         handler._server.run = mock_run  # type: ignore[attr-defined]
         handler.run()
         mock_run.assert_called_once_with(transport="stdio")
+
+    def test_should_have_configure_capabilities_method(self) -> None:
+        """Validate that _configure_capabilities exists and is callable."""
+        handler = ProtocolHandler()
+        assert hasattr(handler, "_configure_capabilities")
+        assert callable(handler._configure_capabilities)

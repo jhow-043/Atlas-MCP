@@ -19,6 +19,13 @@ class ProtocolHandler:
     This class wraps the FastMCP server instance and provides
     a clean interface to start the server with stdio transport.
 
+    Lifecycle:
+        1. ``__init__`` — creates the FastMCP server via ``create_server()``.
+        2. ``_configure_capabilities`` — extension point for registering
+           MCP resources, tools and prompts on the server instance.
+           Called automatically at the end of ``__init__``.
+        3. ``run`` — starts the server with stdio transport (blocking).
+
     Attributes:
         server: The underlying FastMCP server instance.
     """
@@ -26,7 +33,19 @@ class ProtocolHandler:
     def __init__(self) -> None:
         """Initialize the ProtocolHandler with a new FastMCP server."""
         self._server: FastMCP = create_server()
+        self._configure_capabilities()
         logger.info("ProtocolHandler initialized")
+
+    def _configure_capabilities(self) -> None:
+        """Register MCP capabilities (resources, tools, prompts) on the server.
+
+        This method is the single extension point for capability registration.
+        It is called automatically during ``__init__`` after server creation.
+
+        In the current phase this is a no-op. Subsequent tasks (D4, D5) will
+        add resource and tool registrations here.
+        """
+        logger.info("Capability configuration point — no handlers registered yet")
 
     @property
     def server(self) -> FastMCP:
