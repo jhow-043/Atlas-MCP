@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from atlas_mcp.resources import ResourceRegistry
 from atlas_mcp.server import create_server
+from atlas_mcp.tools import ToolExecutor
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -44,6 +45,7 @@ class ProtocolHandler:
         It is called automatically during ``__init__`` after server creation.
         """
         ResourceRegistry.register(self._server)
+        ToolExecutor.register(self._server)
         logger.info("Capabilities configured")
 
     @property
