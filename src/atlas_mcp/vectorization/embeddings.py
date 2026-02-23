@@ -235,7 +235,11 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
 
         self._model_name = model_name
         self._model = SentenceTransformer(model_name)
-        self._dimension = int(self._model.get_sentence_embedding_dimension())
+        raw_dim = self._model.get_sentence_embedding_dimension()
+        if raw_dim is None:
+            msg = f"Could not determine embedding dimension for model: {model_name}"
+            raise EmbeddingError(msg)
+        self._dimension = int(raw_dim)
         logger.info(
             "SentenceTransformer provider initialized (model=%s, dim=%d)",
             model_name,
