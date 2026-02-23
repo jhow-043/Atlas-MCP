@@ -10,6 +10,7 @@ from atlas_mcp.resources.core_stack import register_core_stack
 from atlas_mcp.resources.core_structure import register_core_structure
 from atlas_mcp.resources.decision_adrs import register_decision_adrs
 from atlas_mcp.resources.governance_audit import register_governance_audit
+from atlas_mcp.resources.workflow_current import register_workflow_current
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -38,4 +39,5 @@ class ResourceRegistry:
         register_core_structure(server)
         register_decision_adrs(server)
         register_governance_audit(server)
+        register_workflow_current(server)
         logger.info("ResourceRegistry: all resources registered")
