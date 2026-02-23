@@ -58,6 +58,9 @@ class ProtocolHandler:
         """Start the MCP server with the specified transport.
 
         This method blocks until the server is shut down.
+        Uses ``anyio.run`` internally — must NOT be called from
+        within an already-running event loop.  Use :meth:`run_async`
+        for that scenario.
 
         Args:
             transport: The transport mode — ``"stdio"`` (default)
@@ -65,3 +68,19 @@ class ProtocolHandler:
         """
         logger.info("Starting MCP server with %s transport", transport)
         self._server.run(transport=transport)
+
+    async def run_async(self, *, transport: Literal["stdio", "sse"] = "stdio") -> None:
+        """Start the MCP server asynchronously.
+
+        This method is safe to call from within an existing event loop
+        (e.g., inside ``asyncio.run``).
+
+        Args:
+            transport: The transport mode — ``"stdio"`` (default)
+                or ``"sse"`` for HTTP Server-Sent Events.
+        """
+        logger.info("Starting MCP server with %s transport (async)", transport)
+        if transport == "sse":
+            await self._server.run_sse_async()
+        else:
+            await self._server.run_stdio_async()
