@@ -144,6 +144,65 @@ class TestErrorHelpers:
         data = json.loads(result)
         assert "details" not in data
 
+    def test_should_include_empty_dict_details(self) -> None:
+        """Validate that details={} is included as an empty dict."""
+        result = format_tool_error("INTERNAL_ERROR", "Error", {})
+        data = json.loads(result)
+        assert "details" in data
+        assert data["details"] == {}
+
+    def test_should_create_error_data_with_falsy_data_zero(self) -> None:
+        """Validate that create_error_data works with data=0."""
+        err = create_error_data(-32603, "Error", 0)
+        assert err.data == 0
+
+    def test_should_create_error_data_with_falsy_data_empty_string(self) -> None:
+        """Validate that create_error_data works with data=''."""
+        err = create_error_data(-32603, "Error", "")
+        assert err.data == ""
+
+
+class TestErrorReExports:
+    """Tests for re-exported SDK error codes."""
+
+    def test_should_import_internal_error(self) -> None:
+        """Validate that INTERNAL_ERROR is importable from errors module."""
+        from atlas_mcp.protocol.errors import INTERNAL_ERROR
+
+        assert isinstance(INTERNAL_ERROR, int)
+
+    def test_should_import_invalid_params(self) -> None:
+        """Validate that INVALID_PARAMS is importable from errors module."""
+        from atlas_mcp.protocol.errors import INVALID_PARAMS
+
+        assert isinstance(INVALID_PARAMS, int)
+
+    def test_should_import_invalid_request(self) -> None:
+        """Validate that INVALID_REQUEST is importable from errors module."""
+        from atlas_mcp.protocol.errors import INVALID_REQUEST
+
+        assert isinstance(INVALID_REQUEST, int)
+
+    def test_should_import_method_not_found(self) -> None:
+        """Validate that METHOD_NOT_FOUND is importable from errors module."""
+        from atlas_mcp.protocol.errors import METHOD_NOT_FOUND
+
+        assert isinstance(METHOD_NOT_FOUND, int)
+
+    def test_should_have_correct_error_codes(self) -> None:
+        """Validate that re-exported codes match JSON-RPC 2.0 spec."""
+        from atlas_mcp.protocol.errors import (
+            INTERNAL_ERROR,
+            INVALID_PARAMS,
+            INVALID_REQUEST,
+            METHOD_NOT_FOUND,
+        )
+
+        assert INTERNAL_ERROR == -32603
+        assert INVALID_PARAMS == -32602
+        assert INVALID_REQUEST == -32600
+        assert METHOD_NOT_FOUND == -32601
+
 
 # ---------------------------------------------------------------------------
 # TestToolErrorHandling — via MCP protocol

@@ -36,3 +36,21 @@ class TestProtocolHandler:
         handler = ProtocolHandler()
         assert hasattr(handler, "_configure_capabilities")
         assert callable(handler._configure_capabilities)
+
+    def test_should_register_resources_after_init(self) -> None:
+        """Validate that resources are registered on the server after init."""
+        handler = ProtocolHandler()
+        resources = handler.server._resource_manager.list_resources()
+        assert len(resources) >= 1
+
+    def test_should_register_tools_after_init(self) -> None:
+        """Validate that tools are registered on the server after init."""
+        handler = ProtocolHandler()
+        tools = handler.server._tool_manager.list_tools()
+        assert len(tools) >= 1
+
+    def test_should_create_independent_servers(self) -> None:
+        """Validate that separate ProtocolHandler instances use separate servers."""
+        handler_a = ProtocolHandler()
+        handler_b = ProtocolHandler()
+        assert handler_a.server is not handler_b.server

@@ -188,3 +188,75 @@ class TestCoreStackResource:
             assert resource.mimeType == "application/json"
 
         await _run_resource_test(_assert)
+
+    async def test_should_contain_runtime_info(self) -> None:
+        """Validate that the JSON contains runtime information."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["runtime"] == "Asyncio"
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_sdk_info(self) -> None:
+        """Validate that the JSON contains SDK information."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["sdk"]["name"] == "mcp"
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_package_manager(self) -> None:
+        """Validate that the JSON contains the package manager."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["package_manager"] == "uv"
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_testing_tools(self) -> None:
+        """Validate that the JSON contains testing tool list."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert "pytest" in data["testing"]
+            assert "pytest-asyncio" in data["testing"]
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_linting_tool(self) -> None:
+        """Validate that the JSON contains the linting tool."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["linting"] == "Ruff"
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_type_checking_config(self) -> None:
+        """Validate that the JSON contains type checking configuration."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["type_checking"]["tool"] == "mypy"
+            assert data["type_checking"]["mode"] == "strict"
+
+        await _run_resource_test(_assert)
+
+    async def test_should_contain_ci_provider(self) -> None:
+        """Validate that the JSON contains the CI provider."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.read_resource(_CORE_STACK_URI)
+            data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
+            assert data["ci"] == "GitHub Actions"
+
+        await _run_resource_test(_assert)
