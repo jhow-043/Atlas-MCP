@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import enum
 import logging
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -80,11 +81,21 @@ class DocumentNotFoundError(Exception):
         super().__init__(f"Document not found: {document_id}")
 
 
+#: Callback type for status change events.
+StatusChangeCallback = Callable[
+    [int, str | None, str, dict[str, Any] | None],
+    Awaitable[None],
+]
+
+
 class GovernanceService:
     """Manage document lifecycle with validated transitions and audit logging.
 
     All state changes are persisted to PostgreSQL via the provided
     ``DatabaseManager`` and recorded by the ``AuditLogger``.
+
+    Supports registering callbacks that are invoked after each
+    successful status transition.
 
     Args:
         db: The database manager for persistence.
@@ -100,6 +111,18 @@ class GovernanceService:
         """
         self._db = db
         self._audit = audit_logger
+        self._on_status_change_callbacks: list[StatusChangeCallback] = []
+
+    def register_on_status_change(self, callback: StatusChangeCallback) -> None:
+        """Register a callback to be invoked after status transitions.
+
+        The callback receives ``(document_id, old_status, new_status, document)``.
+
+        Args:
+            callback: An async callable to invoke on status changes.
+        """
+        self._on_status_change_callbacks.append(callback)
+        logger.debug("Registered status change callback: %s", callback)
 
     async def create_document(
         self,
@@ -231,6 +254,21 @@ class GovernanceService:
             new_status=new_status.value,
             details=details or {},
         )
+
+        # Notify registered callbacks
+        for callback in self._on_status_change_callbacks:
+            try:
+                await callback(
+                    document_id,
+                    current_status.value,
+                    new_status.value,
+                    doc,
+                )
+            except Exception:
+                logger.exception(
+                    "Status change callback failed for document #%d.",
+                    document_id,
+                )
 
         return doc
 

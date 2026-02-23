@@ -41,6 +41,20 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Tool `register_adr` para criar ADRs via MCP
   - Testes de integração com PostgreSQL (requer Docker)
   - 319 testes, 97% de cobertura
+- **Fase 3:** Vectorization, RAG e Tools Avançadas
+  - pgvector Extension + Schema (migrations v5–v7) + codec asyncpg
+  - ADR-004: Interface abstrata de Embedding Provider
+  - `MarkdownChunker` — chunking semântico por headers com hierarquia
+  - `EmbeddingProvider` (ABC) com OpenAI e Sentence Transformers
+  - `VectorStore` — repositório pgvector com busca cosine + filtros
+  - `IndexingService` — orquestrador chunk → embed → store
+  - Hook `on_status_change` na GovernanceService (APPROVED→indexa, DEPRECATED→remove)
+  - Tool `search_context` com pipeline RAG real (query→embed→search→format)
+  - Tool `plan_feature` para planejamento estruturado de features com contexto
+  - Tool `analyze_bug` para análise estruturada de bugs com contexto
+  - Testes de integração E2E do pipeline de vectorização
+  - Testes de integração governance → indexing
+  - 510 testes, 96% de cobertura
 
 ## [0.0.1] - 2026-02-19
 

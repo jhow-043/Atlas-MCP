@@ -65,6 +65,29 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log (entity_type, entit
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log (action);
 """
 
+PGVECTOR_EXTENSION_SQL: Final[str] = """\
+CREATE EXTENSION IF NOT EXISTS vector;
+"""
+
+CHUNKS_TABLE_SQL: Final[str] = """\
+CREATE TABLE IF NOT EXISTS chunks (
+    id SERIAL PRIMARY KEY,
+    document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    section_path TEXT NOT NULL DEFAULT '',
+    chunk_index INTEGER NOT NULL DEFAULT 0,
+    embedding vector NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+"""
+
+CHUNKS_INDEX_SQL: Final[str] = """\
+CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks (document_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_embedding_hnsw
+    ON chunks USING hnsw (embedding vector_cosine_ops);
+"""
+
 
 # ---------------------------------------------------------------------------
 # Migration registry
@@ -107,6 +130,21 @@ MIGRATIONS: Final[list[Migration]] = [
         version=4,
         description="Create indexes for audit_log",
         sql=AUDIT_LOG_INDEX_SQL,
+    ),
+    Migration(
+        version=5,
+        description="Enable pgvector extension",
+        sql=PGVECTOR_EXTENSION_SQL,
+    ),
+    Migration(
+        version=6,
+        description="Create chunks table for vector storage",
+        sql=CHUNKS_TABLE_SQL,
+    ),
+    Migration(
+        version=7,
+        description="Create HNSW index on chunks embedding",
+        sql=CHUNKS_INDEX_SQL,
     ),
 ]
 

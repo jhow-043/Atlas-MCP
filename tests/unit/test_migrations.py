@@ -9,10 +9,13 @@ import pytest
 from atlas_mcp.persistence.migrations import (
     AUDIT_LOG_INDEX_SQL,
     AUDIT_LOG_TABLE_SQL,
+    CHUNKS_INDEX_SQL,
+    CHUNKS_TABLE_SQL,
     DOCUMENTS_INDEX_SQL,
     DOCUMENTS_TABLE_SQL,
     MIGRATION_TABLE_SQL,
     MIGRATIONS,
+    PGVECTOR_EXTENSION_SQL,
     Migration,
     MigrationRunner,
 )
@@ -69,6 +72,29 @@ class TestSQLConstants:
         assert "idx_audit_log_entity" in AUDIT_LOG_INDEX_SQL
         assert "idx_audit_log_action" in AUDIT_LOG_INDEX_SQL
 
+    def test_pgvector_extension_sql(self) -> None:
+        """Validate pgvector extension SQL."""
+        assert "CREATE EXTENSION" in PGVECTOR_EXTENSION_SQL
+        assert "vector" in PGVECTOR_EXTENSION_SQL
+
+    def test_chunks_table_has_required_columns(self) -> None:
+        """Validate chunks table schema."""
+        assert "document_id INTEGER NOT NULL" in CHUNKS_TABLE_SQL
+        assert "content TEXT NOT NULL" in CHUNKS_TABLE_SQL
+        assert "section_path TEXT NOT NULL" in CHUNKS_TABLE_SQL
+        assert "chunk_index INTEGER NOT NULL" in CHUNKS_TABLE_SQL
+        assert "embedding vector NOT NULL" in CHUNKS_TABLE_SQL
+        assert "metadata JSONB" in CHUNKS_TABLE_SQL
+        assert "REFERENCES documents(id)" in CHUNKS_TABLE_SQL
+        assert "ON DELETE CASCADE" in CHUNKS_TABLE_SQL
+
+    def test_chunks_indexes(self) -> None:
+        """Validate chunks index SQL."""
+        assert "idx_chunks_document_id" in CHUNKS_INDEX_SQL
+        assert "idx_chunks_embedding_hnsw" in CHUNKS_INDEX_SQL
+        assert "vector_cosine_ops" in CHUNKS_INDEX_SQL
+        assert "hnsw" in CHUNKS_INDEX_SQL.lower()
+
 
 class TestMigrationsRegistry:
     """Tests for the MIGRATIONS list."""
@@ -78,9 +104,9 @@ class TestMigrationsRegistry:
         versions = [m.version for m in MIGRATIONS]
         assert versions == list(range(1, len(MIGRATIONS) + 1))
 
-    def test_should_have_four_migrations(self) -> None:
-        """Validate the expected number of initial migrations."""
-        assert len(MIGRATIONS) == 4
+    def test_should_have_seven_migrations(self) -> None:
+        """Validate the expected number of migrations."""
+        assert len(MIGRATIONS) == 7
 
     def test_should_have_unique_versions(self) -> None:
         """Validate that no duplicate versions exist."""
