@@ -28,6 +28,10 @@ _PLAN_FEATURE_DESCRIPTION = (
     "Searches for related project context to enrich the plan."
 )
 
+_MAX_TITLE_LENGTH = 200
+_MAX_DESCRIPTION_LENGTH = 10_000
+_MAX_FIELD_LENGTH = 10_000
+
 # Module-level references set by configure()
 _embedder: EmbeddingProvider | None = None
 _store: VectorStore | None = None
@@ -130,12 +134,28 @@ def register_plan_feature(server: FastMCP) -> None:
                     {"parameter": "title"},
                 )
             )
+        if len(title) > _MAX_TITLE_LENGTH:
+            raise ToolError(
+                format_tool_error(
+                    "INVALID_PARAMETER",
+                    f"Parameter 'title' exceeds maximum length of {_MAX_TITLE_LENGTH}",
+                    {"parameter": "title", "max_length": _MAX_TITLE_LENGTH},
+                )
+            )
         if not description or not description.strip():
             raise ToolError(
                 format_tool_error(
                     "INVALID_PARAMETER",
                     "Parameter 'description' must be a non-empty string",
                     {"parameter": "description"},
+                )
+            )
+        if len(description) > _MAX_DESCRIPTION_LENGTH:
+            raise ToolError(
+                format_tool_error(
+                    "INVALID_PARAMETER",
+                    f"Parameter 'description' exceeds maximum length of {_MAX_DESCRIPTION_LENGTH}",
+                    {"parameter": "description", "max_length": _MAX_DESCRIPTION_LENGTH},
                 )
             )
 

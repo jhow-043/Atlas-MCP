@@ -53,6 +53,10 @@ def configure(
     logger.info("search_context configured with real RAG pipeline.")
 
 
+_MAX_QUERY_LENGTH = 5_000
+_MAX_LIMIT = 100
+
+
 def _validate_search_params(
     query: str,
     limit: int,
@@ -76,12 +80,28 @@ def _validate_search_params(
                 {"parameter": "query"},
             )
         )
+    if len(query) > _MAX_QUERY_LENGTH:
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                f"Parameter 'query' exceeds maximum length of {_MAX_QUERY_LENGTH}",
+                {"parameter": "query", "max_length": _MAX_QUERY_LENGTH},
+            )
+        )
     if limit < 1:
         raise ToolError(
             format_tool_error(
                 "INVALID_PARAMETER",
                 "Parameter 'limit' must be >= 1",
                 {"parameter": "limit", "value": limit},
+            )
+        )
+    if limit > _MAX_LIMIT:
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                f"Parameter 'limit' must be <= {_MAX_LIMIT}",
+                {"parameter": "limit", "value": limit, "max_limit": _MAX_LIMIT},
             )
         )
     if not (0.0 <= similarity_threshold <= 1.0):
