@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from atlas_mcp.resources import ResourceRegistry
 from atlas_mcp.server import create_server
@@ -54,12 +54,33 @@ class ProtocolHandler:
         """Return the underlying FastMCP server instance."""
         return self._server
 
-    def run(self) -> None:
-        """Start the MCP server with stdio transport.
+    def run(self, *, transport: Literal["stdio", "sse"] = "stdio") -> None:
+        """Start the MCP server with the specified transport.
 
         This method blocks until the server is shut down.
-        It uses stdio transport as recommended by the MCP spec
-        for local development and CLI-based integrations.
+        Uses ``anyio.run`` internally — must NOT be called from
+        within an already-running event loop.  Use :meth:`run_async`
+        for that scenario.
+
+        Args:
+            transport: The transport mode — ``"stdio"`` (default)
+                or ``"sse"`` for HTTP Server-Sent Events.
         """
-        logger.info("Starting MCP server with stdio transport")
-        self._server.run(transport="stdio")
+        logger.info("Starting MCP server with %s transport", transport)
+        self._server.run(transport=transport)
+
+    async def run_async(self, *, transport: Literal["stdio", "sse"] = "stdio") -> None:
+        """Start the MCP server asynchronously.
+
+        This method is safe to call from within an existing event loop
+        (e.g., inside ``asyncio.run``).
+
+        Args:
+            transport: The transport mode — ``"stdio"`` (default)
+                or ``"sse"`` for HTTP Server-Sent Events.
+        """
+        logger.info("Starting MCP server with %s transport (async)", transport)
+        if transport == "sse":
+            await self._server.run_sse_async()
+        else:
+            await self._server.run_stdio_async()

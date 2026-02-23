@@ -57,6 +57,9 @@ packages = ["src/atlas_mcp"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short --cov=src/atlas_mcp --cov-report=term-missing --cov-fail-under=80"
+markers = [
+    "integration: tests requiring a running PostgreSQL instance",
+]
 
 [tool.coverage.run]
 source = ["src/atlas_mcp"]
