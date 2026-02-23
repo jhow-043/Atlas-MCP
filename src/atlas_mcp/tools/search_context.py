@@ -6,6 +6,10 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
+from mcp.server.fastmcp.exceptions import ToolError
+
+from atlas_mcp.protocol.errors import format_tool_error
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
@@ -49,6 +53,47 @@ _MOCK_RESULTS: list[dict[str, object]] = [
 ]
 
 
+def _validate_search_params(
+    query: str,
+    limit: int,
+    similarity_threshold: float,
+) -> None:
+    """Validate search_context parameters.
+
+    Args:
+        query: The search query string.
+        limit: Maximum number of results.
+        similarity_threshold: Minimum similarity score.
+
+    Raises:
+        ToolError: If any parameter is invalid.
+    """
+    if not query or not query.strip():
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                "Parameter 'query' must be a non-empty string",
+                {"parameter": "query"},
+            )
+        )
+    if limit < 1:
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                "Parameter 'limit' must be >= 1",
+                {"parameter": "limit", "value": limit},
+            )
+        )
+    if not (0.0 <= similarity_threshold <= 1.0):
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                "Parameter 'similarity_threshold' must be between 0.0 and 1.0",
+                {"parameter": "similarity_threshold", "value": similarity_threshold},
+            )
+        )
+
+
 def register_search_context(server: FastMCP) -> None:
     """Register the ``search_context`` tool on *server*.
 
@@ -80,7 +125,12 @@ def register_search_context(server: FastMCP) -> None:
 
         Returns:
             JSON string with matching context entries.
+
+        Raises:
+            ToolError: If any parameter fails validation.
         """
+        _validate_search_params(query, limit, similarity_threshold)
+
         results = _MOCK_RESULTS
 
         if filters:
