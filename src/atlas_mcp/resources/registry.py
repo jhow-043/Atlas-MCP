@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from atlas_mcp.resources.core_conventions import register_core_conventions
 from atlas_mcp.resources.core_stack import register_core_stack
 from atlas_mcp.resources.core_structure import register_core_structure
+from atlas_mcp.resources.decision_adrs import register_decision_adrs
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -34,4 +35,5 @@ class ResourceRegistry:
         register_core_stack(server)
         register_core_conventions(server)
         register_core_structure(server)
+        register_decision_adrs(server)
         logger.info("ResourceRegistry: all resources registered")
