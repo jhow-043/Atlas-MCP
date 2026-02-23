@@ -1,0 +1,41 @@
+"""Tests for the server module."""
+
+from __future__ import annotations
+
+from mcp.server.fastmcp import FastMCP
+
+from atlas_mcp.server import _SERVER_NAME, create_server
+
+
+class TestCreateServer:
+    """Tests for the create_server factory function."""
+
+    def test_should_return_fastmcp_instance(self) -> None:
+        """Validate that create_server returns a FastMCP instance."""
+        server = create_server()
+        assert isinstance(server, FastMCP)
+
+    def test_should_set_server_name(self) -> None:
+        """Validate that the server has the correct name."""
+        server = create_server()
+        assert server.name == _SERVER_NAME
+
+    def test_should_set_instructions(self) -> None:
+        """Validate that the server has instructions configured."""
+        server = create_server()
+        assert server.instructions is not None
+        assert "Atlas MCP" in server.instructions
+
+    def test_should_set_server_version(self) -> None:
+        """Validate that the server version matches __version__."""
+        from atlas_mcp import __version__
+
+        server = create_server()
+        init_options = server._mcp_server.create_initialization_options()
+        assert init_options.server_version == __version__
+
+    def test_should_return_distinct_instances(self) -> None:
+        """Validate that each call to create_server returns a new instance."""
+        server_a = create_server()
+        server_b = create_server()
+        assert server_a is not server_b

@@ -19,6 +19,8 @@ classifiers = [
 ]
 dependencies = [
     "mcp",
+    "asyncpg>=0.29",
+    "python-dotenv>=1.0",
 ]
 
 [project.urls]
@@ -74,3 +76,7 @@ warn_return_any = true
 warn_unused_configs = true
 mypy_path = "src"
 packages = ["atlas_mcp"]
+
+[[tool.mypy.overrides]]
+module = "asyncpg"
+ignore_missing_imports = true
