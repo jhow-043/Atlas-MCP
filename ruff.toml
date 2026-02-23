@@ -37,6 +37,7 @@ convention = "google"
     "D102",   # Missing docstring in public method (test methods are self-documenting)
     "D103",   # Missing docstring in public function (test methods are self-documenting)
     "TCH002", # Third-party imports used as runtime fixtures in tests
+    "TCH003", # Standard library imports used as runtime fixtures in tests
 ]
 
 [lint.isort]

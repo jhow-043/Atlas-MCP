@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from atlas_mcp.tools.register_adr import register_register_adr
 from atlas_mcp.tools.search_context import register_search_context
 
 if TYPE_CHECKING:
@@ -30,4 +31,5 @@ class ToolExecutor:
             server: The FastMCP server instance to register tools on.
         """
         register_search_context(server)
+        register_register_adr(server)
         logger.info("ToolExecutor: all tools registered")
