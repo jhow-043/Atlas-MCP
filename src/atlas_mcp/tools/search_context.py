@@ -1,10 +1,15 @@
-"""Tool: search_context — Semantic search over project context (mock data)."""
+"""Tool: search_context — Semantic search over project context via RAG.
+
+Performs real vector similarity search using the embedding provider
+and pgvector store. Falls back gracefully when the database or
+embedding provider is unavailable.
+"""
 
 from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mcp.server.fastmcp.exceptions import ToolError
 
@@ -12,6 +17,9 @@ from atlas_mcp.protocol.errors import format_tool_error
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
+
+    from atlas_mcp.vectorization.embeddings import EmbeddingProvider
+    from atlas_mcp.vectorization.store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -21,36 +29,28 @@ _SEARCH_CONTEXT_DESCRIPTION = (
     "Returns relevant code snippets, documentation, and decisions."
 )
 
-_MOCK_RESULTS: list[dict[str, object]] = [
-    {
-        "id": "ctx-001",
-        "type": "documentation",
-        "title": "Project Architecture Overview",
-        "content": "Atlas MCP follows a layered architecture with protocol, "
-        "resources, tools, context, vectorization, governance, "
-        "and persistence layers.",
-        "similarity": 0.92,
-        "source": "docs/architecture/context.md",
-    },
-    {
-        "id": "ctx-002",
-        "type": "convention",
-        "title": "Code Style Conventions",
-        "content": "Line length: 100 chars. Indentation: 4 spaces. "
-        "Quotes: double quotes. Type hints: mandatory.",
-        "similarity": 0.87,
-        "source": "docs/conventions.md",
-    },
-    {
-        "id": "ctx-003",
-        "type": "decision",
-        "title": "ADR-001: Use FastMCP SDK",
-        "content": "Decision to use the official MCP Python SDK (FastMCP) "
-        "for protocol handling instead of a custom implementation.",
-        "similarity": 0.83,
-        "source": "docs/adr/adr-001.md",
-    },
-]
+# Module-level references set by configure()
+_embedder: EmbeddingProvider | None = None
+_store: VectorStore | None = None
+
+
+def configure(
+    embedder: EmbeddingProvider,
+    store: VectorStore,
+) -> None:
+    """Configure the search_context tool with real dependencies.
+
+    Must be called before the tool is invoked. Typically called
+    during server initialization after the indexing service is set up.
+
+    Args:
+        embedder: The embedding provider for query vectorization.
+        store: The vector store for similarity search.
+    """
+    global _embedder, _store
+    _embedder = embedder
+    _store = store
+    logger.info("search_context configured with real RAG pipeline.")
 
 
 def _validate_search_params(
@@ -89,17 +89,51 @@ def _validate_search_params(
             format_tool_error(
                 "INVALID_PARAMETER",
                 "Parameter 'similarity_threshold' must be between 0.0 and 1.0",
-                {"parameter": "similarity_threshold", "value": similarity_threshold},
+                {
+                    "parameter": "similarity_threshold",
+                    "value": similarity_threshold,
+                },
             )
         )
+
+
+def _build_filters(
+    filters: dict[str, str] | None,
+) -> dict[str, Any] | None:
+    """Convert user-facing filters to store-compatible filters.
+
+    Args:
+        filters: Optional key-value filters from the user.
+
+    Returns:
+        A dictionary compatible with :meth:`VectorStore.search`,
+        or ``None`` if no filters were provided.
+    """
+    if not filters:
+        return None
+
+    store_filters: dict[str, Any] = {}
+
+    if "type" in filters:
+        store_filters["doc_type"] = filters["type"]
+    if "doc_type" in filters:
+        store_filters["doc_type"] = filters["doc_type"]
+    if "status" in filters:
+        store_filters["status"] = filters["status"]
+    if "document_id" in filters:
+        store_filters["document_id"] = int(filters["document_id"])
+
+    return store_filters if store_filters else None
 
 
 def register_search_context(server: FastMCP) -> None:
     """Register the ``search_context`` tool on *server*.
 
-    The tool performs semantic search over the project context.
-    In this phase the results are **mock/static**; the tool will
-    be connected to the vectorization layer in Phase 2.
+    The tool performs semantic search over the project context
+    using the real RAG pipeline (embed query → pgvector search).
+
+    Falls back with an informative error if the RAG pipeline
+    is not configured.
 
     Args:
         server: The FastMCP server instance to register on.
@@ -127,39 +161,74 @@ def register_search_context(server: FastMCP) -> None:
             JSON string with matching context entries.
 
         Raises:
-            ToolError: If any parameter fails validation.
+            ToolError: If any parameter fails validation or
+                the RAG pipeline is unavailable.
         """
         _validate_search_params(query, limit, similarity_threshold)
 
-        results = _MOCK_RESULTS
+        if _embedder is None or _store is None:
+            raise ToolError(
+                format_tool_error(
+                    "SERVICE_UNAVAILABLE",
+                    "search_context requires a configured RAG pipeline. "
+                    "Ensure the database and embedding provider "
+                    "are initialized.",
+                    {"configured": False},
+                )
+            )
 
-        if filters:
-            for key, value in filters.items():
-                results = [r for r in results if str(r.get(key, "")).lower() == value.lower()]
+        try:
+            # Step 1: Embed the query
+            query_embedding = await _embedder.embed(query)
 
-        results = [
-            r
-            for r in results
-            if isinstance(r.get("similarity"), (int, float))
-            and float(str(r["similarity"])) >= similarity_threshold
-        ]
+            # Step 2: Search the vector store
+            store_filters = _build_filters(filters)
+            search_results = await _store.search(
+                query_embedding,
+                limit=limit,
+                similarity_threshold=similarity_threshold,
+                filters=store_filters,
+            )
 
-        results = results[:limit]
+            # Step 3: Format results
+            results: list[dict[str, Any]] = [
+                {
+                    "chunk_id": r.chunk_id,
+                    "document_id": r.document_id,
+                    "content": r.content,
+                    "section_path": r.section_path,
+                    "similarity": round(r.similarity, 4),
+                    "metadata": r.metadata,
+                }
+                for r in search_results
+            ]
 
-        response = {
-            "query": query,
-            "total_results": len(results),
-            "filters_applied": filters or {},
-            "similarity_threshold": similarity_threshold,
-            "results": results,
-        }
+            response = {
+                "query": query,
+                "total_results": len(results),
+                "filters_applied": filters or {},
+                "similarity_threshold": similarity_threshold,
+                "results": results,
+            }
 
-        logger.info(
-            "search_context: query=%r, results=%d",
-            query,
-            len(results),
-        )
+            logger.info(
+                "search_context: query=%r, results=%d",
+                query,
+                len(results),
+            )
 
-        return json.dumps(response, indent=2)
+            return json.dumps(response, indent=2)
+
+        except ToolError:
+            raise
+        except Exception as exc:
+            logger.exception("search_context failed: %s", exc)
+            raise ToolError(
+                format_tool_error(
+                    "SEARCH_FAILED",
+                    f"Search operation failed: {exc}",
+                    {"query": query},
+                )
+            ) from exc
 
     logger.info("Registered tool %s", _SEARCH_CONTEXT_NAME)

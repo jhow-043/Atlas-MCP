@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from unittest.mock import AsyncMock
 
 import anyio
 import pytest
@@ -11,6 +12,7 @@ from mcp.client.session import ClientSession
 from mcp.shared.exceptions import McpError
 from mcp.shared.message import SessionMessage
 
+import atlas_mcp.tools.search_context as _sc_mod
 from atlas_mcp.protocol.errors import (
     AtlasMCPError,
     ContextNotFoundError,
@@ -298,39 +300,63 @@ class TestToolErrorHandling:
 
     async def test_should_succeed_with_valid_params(self) -> None:
         """Validate that valid parameters do not trigger errors."""
+        mock_embedder = AsyncMock()
+        mock_embedder.embed = AsyncMock(return_value=[0.1] * 1536)
+        mock_store = AsyncMock()
+        mock_store.search = AsyncMock(return_value=[])
 
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {
-                    "query": "architecture",
-                    "limit": 2,
-                    "similarity_threshold": 0.8,
-                },
-            )
-            assert result.isError is not True
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert data["query"] == "architecture"
+        _sc_mod._embedder = mock_embedder
+        _sc_mod._store = mock_store
 
-        await _run_error_test(_assert)
+        try:
+
+            async def _assert(session: ClientSession) -> None:
+                result = await session.call_tool(
+                    _SEARCH_CONTEXT_NAME,
+                    {
+                        "query": "architecture",
+                        "limit": 2,
+                        "similarity_threshold": 0.8,
+                    },
+                )
+                assert result.isError is not True
+                data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+                assert data["query"] == "architecture"
+
+            await _run_error_test(_assert)
+        finally:
+            _sc_mod._embedder = None
+            _sc_mod._store = None
 
     async def test_should_succeed_with_boundary_threshold(self) -> None:
         """Validate that boundary values 0.0 and 1.0 are accepted."""
+        mock_embedder = AsyncMock()
+        mock_embedder.embed = AsyncMock(return_value=[0.1] * 1536)
+        mock_store = AsyncMock()
+        mock_store.search = AsyncMock(return_value=[])
 
-        async def _assert(session: ClientSession) -> None:
-            result_zero = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "similarity_threshold": 0.0},
-            )
-            assert result_zero.isError is not True
+        _sc_mod._embedder = mock_embedder
+        _sc_mod._store = mock_store
 
-            result_one = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "similarity_threshold": 1.0},
-            )
-            assert result_one.isError is not True
+        try:
 
-        await _run_error_test(_assert)
+            async def _assert(session: ClientSession) -> None:
+                result_zero = await session.call_tool(
+                    _SEARCH_CONTEXT_NAME,
+                    {"query": "test", "similarity_threshold": 0.0},
+                )
+                assert result_zero.isError is not True
+
+                result_one = await session.call_tool(
+                    _SEARCH_CONTEXT_NAME,
+                    {"query": "test", "similarity_threshold": 1.0},
+                )
+                assert result_one.isError is not True
+
+            await _run_error_test(_assert)
+        finally:
+            _sc_mod._embedder = None
+            _sc_mod._store = None
 
 
 # ---------------------------------------------------------------------------
