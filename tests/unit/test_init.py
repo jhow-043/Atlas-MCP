@@ -52,3 +52,25 @@ class TestMain:
             main()
         assert "Atlas MCP Server" in caplog.text
         assert atlas_mcp.__version__ in caplog.text
+
+
+class TestSubpackageImports:
+    """Tests for convenience imports from sub-packages."""
+
+    def test_should_import_protocol_handler(self) -> None:
+        """Validate that ProtocolHandler is importable from atlas_mcp.protocol."""
+        from atlas_mcp.protocol import ProtocolHandler
+
+        assert ProtocolHandler is not None
+
+    def test_should_import_resource_registry(self) -> None:
+        """Validate that ResourceRegistry is importable from atlas_mcp.resources."""
+        from atlas_mcp.resources import ResourceRegistry
+
+        assert ResourceRegistry is not None
+
+    def test_should_import_tool_executor(self) -> None:
+        """Validate that ToolExecutor is importable from atlas_mcp.tools."""
+        from atlas_mcp.tools import ToolExecutor
+
+        assert ToolExecutor is not None

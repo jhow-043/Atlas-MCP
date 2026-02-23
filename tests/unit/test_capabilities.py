@@ -214,8 +214,10 @@ class TestConfigureCapabilities:
             mock_configure.assert_called_once()
             assert handler is not None
 
-    def test_should_have_configure_capabilities_method(self) -> None:
-        """Validate that _configure_capabilities exists and is callable."""
+    def test_should_register_resources_and_tools_on_init(self) -> None:
+        """Validate that _configure_capabilities registers real capabilities."""
         handler = ProtocolHandler()
-        assert hasattr(handler, "_configure_capabilities")
-        assert callable(handler._configure_capabilities)
+        resources = handler.server._resource_manager.list_resources()
+        tools = handler.server._tool_manager.list_tools()
+        assert len(resources) >= 1
+        assert len(tools) >= 1

@@ -259,3 +259,147 @@ class TestSearchContextToolCalling:
             assert data["filters_applied"] == {}
 
         await _run_tool_test(_assert)
+
+
+# ---------------------------------------------------------------------------
+# TestSearchContextEdgeCases
+# ---------------------------------------------------------------------------
+
+
+class TestSearchContextEdgeCases:
+    """Tests for edge cases in the search_context tool."""
+
+    async def test_should_return_empty_for_nonexistent_filter_key(self) -> None:
+        """Validate that filtering by a key not in the data returns 0 results."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "test", "filters": {"nonexistent_key": "value"}},
+            )
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            assert data["total_results"] == 0
+            assert data["results"] == []
+
+        await _run_tool_test(_assert)
+
+    async def test_should_support_case_insensitive_filter(self) -> None:
+        """Validate that filter values are matched case-insensitively."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "test", "filters": {"type": "DECISION"}},
+            )
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            assert data["total_results"] >= 1
+            for item in data["results"]:
+                assert item["type"].lower() == "decision"
+
+        await _run_tool_test(_assert)
+
+    async def test_should_not_filter_with_empty_dict(self) -> None:
+        """Validate that filters={} behaves the same as no filters."""
+
+        async def _assert(session: ClientSession) -> None:
+            result_no_filters = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "test"},
+            )
+            result_empty_filters = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "test", "filters": {}},
+            )
+            data_no = json.loads(result_no_filters.content[0].text)  # type: ignore[union-attr]
+            data_empty = json.loads(result_empty_filters.content[0].text)  # type: ignore[union-attr]
+            assert data_no["total_results"] == data_empty["total_results"]
+
+        await _run_tool_test(_assert)
+
+    async def test_should_return_error_for_negative_limit(self) -> None:
+        """Validate that limit=-1 returns isError=True."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "test", "limit": -1},
+            )
+            assert result.isError is True
+
+        await _run_tool_test(_assert)
+
+    async def test_should_return_all_when_limit_exceeds_total(self) -> None:
+        """Validate that limit > total results returns all available."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "test", "limit": 100},
+            )
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            assert data["total_results"] >= 1
+            assert data["total_results"] <= 100
+
+        await _run_tool_test(_assert)
+
+    async def test_should_handle_query_with_special_characters(self) -> None:
+        """Validate that queries with unicode/special chars are accepted."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "búsca semântica 🔍 café"},
+            )
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            assert data["query"] == "búsca semântica 🔍 café"
+
+        await _run_tool_test(_assert)
+
+    async def test_should_combine_filter_threshold_and_limit(self) -> None:
+        """Validate that filter + threshold + limit work together."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {
+                    "query": "test",
+                    "filters": {"type": "documentation"},
+                    "similarity_threshold": 0.80,
+                    "limit": 1,
+                },
+            )
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            assert len(data["results"]) <= 1
+            for item in data["results"]:
+                assert item["type"] == "documentation"
+                assert item["similarity"] >= 0.80
+
+        await _run_tool_test(_assert)
+
+    async def test_should_handle_threshold_exactly_matching_score(self) -> None:
+        """Validate that threshold==similarity includes that result."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "test", "similarity_threshold": 0.87},
+            )
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            sims = [r["similarity"] for r in data["results"]]
+            # ctx-002 has similarity 0.87, should be included
+            assert 0.87 in sims
+
+        await _run_tool_test(_assert)
+
+    async def test_should_return_all_with_threshold_zero(self) -> None:
+        """Validate that threshold=0.0 returns all mock results."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "test", "similarity_threshold": 0.0},
+            )
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            assert data["total_results"] == 3
+
+        await _run_tool_test(_assert)

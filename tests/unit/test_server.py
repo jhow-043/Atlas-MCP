@@ -33,3 +33,9 @@ class TestCreateServer:
         server = create_server()
         init_options = server._mcp_server.create_initialization_options()
         assert init_options.server_version == __version__
+
+    def test_should_return_distinct_instances(self) -> None:
+        """Validate that each call to create_server returns a new instance."""
+        server_a = create_server()
+        server_b = create_server()
+        assert server_a is not server_b
