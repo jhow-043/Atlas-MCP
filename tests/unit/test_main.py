@@ -163,13 +163,14 @@ class TestAsyncMain:
         bootstrap = AsyncMock()
 
         mock_handler = MagicMock()
+        mock_handler.run_async = AsyncMock()
         mock_handler_cls.return_value = mock_handler
 
         await _async_main(settings, bootstrap)
 
         bootstrap.startup.assert_awaited_once_with(settings)
         bootstrap.shutdown.assert_awaited_once()
-        mock_handler.run.assert_called_once()
+        mock_handler.run_async.assert_awaited_once()
 
     @pytest.mark.asyncio
     @patch("atlas_mcp.__main__.ProtocolHandler")

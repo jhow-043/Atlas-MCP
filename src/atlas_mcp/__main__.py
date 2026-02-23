@@ -72,7 +72,7 @@ async def _async_main(settings: Settings, bootstrap: ApplicationBootstrap) -> No
             __version__,
             settings.transport,
         )
-        handler.run(transport=_as_transport(settings.transport))
+        await handler.run_async(transport=_as_transport(settings.transport))
     finally:
         await bootstrap.shutdown()
 
