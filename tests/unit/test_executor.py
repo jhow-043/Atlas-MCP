@@ -4,22 +4,60 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from unittest.mock import AsyncMock
 
 import anyio
+import pytest
 from mcp.client.session import ClientSession
+from mcp.server.fastmcp.exceptions import ToolError
 from mcp.shared.message import SessionMessage
 
+import atlas_mcp.tools.search_context as _sc_mod
 from atlas_mcp.server import create_server
 from atlas_mcp.tools.executor import ToolExecutor
 from atlas_mcp.tools.search_context import (
     _SEARCH_CONTEXT_DESCRIPTION,
     _SEARCH_CONTEXT_NAME,
+    _build_filters,
+    _validate_search_params,
+    configure,
     register_search_context,
 )
+from atlas_mcp.vectorization.store import SearchResult
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers & fixtures
 # ---------------------------------------------------------------------------
+
+_SAMPLE_RESULTS = [
+    SearchResult(
+        chunk_id=1,
+        document_id=10,
+        content="Architecture overview of the system.",
+        section_path="Architecture > Overview",
+        chunk_index=0,
+        similarity=0.95,
+        metadata={"doc_type": "documentation"},
+    ),
+    SearchResult(
+        chunk_id=2,
+        document_id=11,
+        content="ADR-001 decision record.",
+        section_path="Decisions > ADR-001",
+        chunk_index=0,
+        similarity=0.87,
+        metadata={"doc_type": "decision"},
+    ),
+    SearchResult(
+        chunk_id=3,
+        document_id=12,
+        content="Code convention guidelines.",
+        section_path="Conventions > Code Style",
+        chunk_index=0,
+        similarity=0.82,
+        metadata={"doc_type": "convention"},
+    ),
+]
 
 
 async def _run_tool_test(callback: Any) -> None:
@@ -48,6 +86,31 @@ async def _run_tool_test(callback: Any) -> None:
             await session.initialize()
             await callback(session)
             tg.cancel_scope.cancel()
+
+
+async def _run_configured_tool_test(
+    callback: Any,
+    search_results: list[SearchResult] | None = None,
+) -> None:
+    """Set up MCP session with a mocked RAG pipeline.
+
+    Configures module-level ``_embedder`` and ``_store`` so that
+    ``search_context`` executes the full pipeline against mocks.
+    """
+    mock_embedder = AsyncMock()
+    mock_embedder.embed = AsyncMock(return_value=[0.1] * 1536)
+
+    mock_store = AsyncMock()
+    mock_store.search = AsyncMock(return_value=search_results or [])
+
+    _sc_mod._embedder = mock_embedder
+    _sc_mod._store = mock_store
+
+    try:
+        await _run_tool_test(callback)
+    finally:
+        _sc_mod._embedder = None
+        _sc_mod._store = None
 
 
 # ---------------------------------------------------------------------------
@@ -148,8 +211,167 @@ class TestSearchContextToolListing:
 # ---------------------------------------------------------------------------
 
 
+class TestSearchContextConfigure:
+    """Tests for configure() and _build_filters() helpers."""
+
+    def test_should_set_module_refs_via_configure(self) -> None:
+        """Validate that configure() sets _embedder and _store."""
+        mock_embedder = AsyncMock()
+        mock_store = AsyncMock()
+
+        old_e, old_s = _sc_mod._embedder, _sc_mod._store
+        try:
+            configure(mock_embedder, mock_store)
+            assert _sc_mod._embedder is mock_embedder
+            assert _sc_mod._store is mock_store
+        finally:
+            _sc_mod._embedder = old_e
+            _sc_mod._store = old_s
+
+    def test_build_filters_should_return_none_for_none(self) -> None:
+        """Validate that _build_filters returns None for None input."""
+        assert _build_filters(None) is None
+
+    def test_build_filters_should_return_none_for_empty_dict(self) -> None:
+        """Validate that _build_filters returns None for empty dict."""
+        assert _build_filters({}) is None
+
+    def test_build_filters_should_map_type_to_doc_type(self) -> None:
+        """Validate that 'type' key is mapped to 'doc_type'."""
+        result = _build_filters({"type": "decision"})
+        assert result == {"doc_type": "decision"}
+
+    def test_build_filters_should_pass_doc_type_directly(self) -> None:
+        """Validate that 'doc_type' key passes through unchanged."""
+        result = _build_filters({"doc_type": "documentation"})
+        assert result == {"doc_type": "documentation"}
+
+    def test_build_filters_should_pass_status(self) -> None:
+        """Validate that 'status' key passes through."""
+        result = _build_filters({"status": "APPROVED"})
+        assert result == {"status": "APPROVED"}
+
+    def test_build_filters_should_convert_document_id_to_int(self) -> None:
+        """Validate that 'document_id' is converted to int."""
+        result = _build_filters({"document_id": "42"})
+        assert result == {"document_id": 42}
+
+    def test_build_filters_should_ignore_unknown_keys(self) -> None:
+        """Validate that unknown filter keys are silently ignored."""
+        result = _build_filters({"nonexistent_key": "value"})
+        assert result is None
+
+    def test_build_filters_should_combine_multiple_keys(self) -> None:
+        """Validate that multiple known keys are combined."""
+        result = _build_filters({"type": "decision", "status": "APPROVED"})
+        assert result == {"doc_type": "decision", "status": "APPROVED"}
+
+
+# ---------------------------------------------------------------------------
+# TestSearchContextValidation
+# ---------------------------------------------------------------------------
+
+
+class TestSearchContextValidation:
+    """Tests for _validate_search_params()."""
+
+    def test_should_reject_empty_query(self) -> None:
+        """Validate that empty query raises ToolError."""
+        with pytest.raises(ToolError):
+            _validate_search_params("", 5, 0.7)
+
+    def test_should_reject_whitespace_only_query(self) -> None:
+        """Validate that whitespace-only query raises ToolError."""
+        with pytest.raises(ToolError):
+            _validate_search_params("   ", 5, 0.7)
+
+    def test_should_reject_negative_limit(self) -> None:
+        """Validate that limit < 1 raises ToolError."""
+        with pytest.raises(ToolError):
+            _validate_search_params("test", -1, 0.7)
+
+    def test_should_reject_zero_limit(self) -> None:
+        """Validate that limit=0 raises ToolError."""
+        with pytest.raises(ToolError):
+            _validate_search_params("test", 0, 0.7)
+
+    def test_should_reject_threshold_above_one(self) -> None:
+        """Validate that similarity_threshold > 1.0 raises ToolError."""
+        with pytest.raises(ToolError):
+            _validate_search_params("test", 5, 1.5)
+
+    def test_should_reject_negative_threshold(self) -> None:
+        """Validate that similarity_threshold < 0.0 raises ToolError."""
+        with pytest.raises(ToolError):
+            _validate_search_params("test", 5, -0.1)
+
+    def test_should_accept_valid_params(self) -> None:
+        """Validate that valid parameters do not raise."""
+        _validate_search_params("architecture", 5, 0.7)
+
+    def test_should_accept_boundary_thresholds(self) -> None:
+        """Validate that threshold 0.0 and 1.0 are accepted."""
+        _validate_search_params("test", 1, 0.0)
+        _validate_search_params("test", 1, 1.0)
+
+
+# ---------------------------------------------------------------------------
+# TestSearchContextUnconfigured
+# ---------------------------------------------------------------------------
+
+
+class TestSearchContextUnconfigured:
+    """Tests for calling search_context without RAG pipeline."""
+
+    async def test_should_return_service_unavailable(self) -> None:
+        """Validate that calling without configure() returns error."""
+        old_e, old_s = _sc_mod._embedder, _sc_mod._store
+        _sc_mod._embedder = None
+        _sc_mod._store = None
+
+        try:
+
+            async def _assert(session: ClientSession) -> None:
+                result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test"})
+                assert result.isError is True
+                text = result.content[0].text  # type: ignore[union-attr]
+                assert "SERVICE_UNAVAILABLE" in text
+
+            await _run_tool_test(_assert)
+        finally:
+            _sc_mod._embedder = old_e
+            _sc_mod._store = old_s
+
+    async def test_should_validate_before_service_check(self) -> None:
+        """Validate that param validation runs before availability check."""
+        old_e, old_s = _sc_mod._embedder, _sc_mod._store
+        _sc_mod._embedder = None
+        _sc_mod._store = None
+
+        try:
+
+            async def _assert(session: ClientSession) -> None:
+                result = await session.call_tool(
+                    _SEARCH_CONTEXT_NAME,
+                    {"query": "test", "limit": -1},
+                )
+                assert result.isError is True
+                text = result.content[0].text  # type: ignore[union-attr]
+                assert "INVALID_PARAMETER" in text
+
+            await _run_tool_test(_assert)
+        finally:
+            _sc_mod._embedder = old_e
+            _sc_mod._store = old_s
+
+
+# ---------------------------------------------------------------------------
+# TestSearchContextToolCalling
+# ---------------------------------------------------------------------------
+
+
 class TestSearchContextToolCalling:
-    """Tests for calling the search_context tool via MCP protocol."""
+    """Tests for calling search_context with mocked RAG pipeline."""
 
     async def test_should_return_valid_json(self) -> None:
         """Validate that calling search_context returns valid JSON."""
@@ -161,7 +383,7 @@ class TestSearchContextToolCalling:
             data = json.loads(text)
             assert isinstance(data, dict)
 
-        await _run_tool_test(_assert)
+        await _run_configured_tool_test(_assert, _SAMPLE_RESULTS)
 
     async def test_should_contain_query_in_response(self) -> None:
         """Validate that the response echoes back the query string."""
@@ -171,73 +393,32 @@ class TestSearchContextToolCalling:
             data = json.loads(result.content[0].text)  # type: ignore[union-attr]
             assert data["query"] == "architecture"
 
-        await _run_tool_test(_assert)
+        await _run_configured_tool_test(_assert, _SAMPLE_RESULTS)
 
-    async def test_should_return_mock_results(self) -> None:
-        """Validate that the response contains mock results."""
+    async def test_should_return_results_from_store(self) -> None:
+        """Validate that the response contains results from vector store."""
 
         async def _assert(session: ClientSession) -> None:
             result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test"})
             data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert data["total_results"] > 0
-            assert len(data["results"]) > 0
+            assert data["total_results"] == 3
+            assert len(data["results"]) == 3
 
-        await _run_tool_test(_assert)
+        await _run_configured_tool_test(_assert, _SAMPLE_RESULTS)
 
-    async def test_should_filter_by_type(self) -> None:
-        """Validate that filters narrow down results by type."""
-
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "filters": {"type": "decision"}},
-            )
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            for item in data["results"]:
-                assert item["type"] == "decision"
-
-        await _run_tool_test(_assert)
-
-    async def test_should_respect_limit(self) -> None:
-        """Validate that limit parameter caps the number of results."""
+    async def test_should_return_empty_when_store_returns_nothing(self) -> None:
+        """Validate that empty store results yield empty response."""
 
         async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test", "limit": 1})
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert len(data["results"]) <= 1
-
-        await _run_tool_test(_assert)
-
-    async def test_should_respect_similarity_threshold(self) -> None:
-        """Validate that similarity_threshold filters low-score results."""
-
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "similarity_threshold": 0.90},
-            )
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            for item in data["results"]:
-                assert item["similarity"] >= 0.90
-
-        await _run_tool_test(_assert)
-
-    async def test_should_return_empty_when_no_match(self) -> None:
-        """Validate that high threshold returns empty results."""
-
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "nonexistent", "similarity_threshold": 0.99},
-            )
+            result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "nonexistent"})
             data = json.loads(result.content[0].text)  # type: ignore[union-attr]
             assert data["total_results"] == 0
-            assert len(data["results"]) == 0
+            assert data["results"] == []
 
-        await _run_tool_test(_assert)
+        await _run_configured_tool_test(_assert, [])
 
-    async def test_should_include_filters_applied_in_response(self) -> None:
-        """Validate that filters_applied reflects the used filters."""
+    async def test_should_include_filters_applied(self) -> None:
+        """Validate that filters_applied reflects the user filters."""
 
         async def _assert(session: ClientSession) -> None:
             filters = {"type": "convention"}
@@ -248,17 +429,95 @@ class TestSearchContextToolCalling:
             data = json.loads(result.content[0].text)  # type: ignore[union-attr]
             assert data["filters_applied"] == filters
 
-        await _run_tool_test(_assert)
+        await _run_configured_tool_test(_assert, _SAMPLE_RESULTS)
 
-    async def test_should_return_empty_filters_when_none_provided(self) -> None:
-        """Validate that filters_applied is empty dict when no filters."""
+    async def test_should_return_empty_filters_when_none(self) -> None:
+        """Validate that filters_applied is {} when no filters given."""
 
         async def _assert(session: ClientSession) -> None:
             result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test"})
             data = json.loads(result.content[0].text)  # type: ignore[union-attr]
             assert data["filters_applied"] == {}
 
-        await _run_tool_test(_assert)
+        await _run_configured_tool_test(_assert, _SAMPLE_RESULTS)
+
+    async def test_should_format_similarity_to_4_decimals(self) -> None:
+        """Validate that similarity scores are rounded to 4 decimals."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test"})
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            for item in data["results"]:
+                sim_str = str(item["similarity"])
+                parts = sim_str.split(".")
+                if len(parts) == 2:
+                    assert len(parts[1]) <= 4
+
+        await _run_configured_tool_test(_assert, _SAMPLE_RESULTS)
+
+    async def test_should_include_result_fields(self) -> None:
+        """Validate that each result includes the expected fields."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test"})
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            for item in data["results"]:
+                assert "chunk_id" in item
+                assert "document_id" in item
+                assert "content" in item
+                assert "section_path" in item
+                assert "similarity" in item
+                assert "metadata" in item
+
+        await _run_configured_tool_test(_assert, _SAMPLE_RESULTS)
+
+    async def test_should_handle_special_character_query(self) -> None:
+        """Validate that unicode/special chars are accepted in query."""
+
+        async def _assert(session: ClientSession) -> None:
+            result = await session.call_tool(
+                _SEARCH_CONTEXT_NAME,
+                {"query": "búsca semântica 🔍 café"},
+            )
+            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+            assert data["query"] == "búsca semântica 🔍 café"
+
+        await _run_configured_tool_test(_assert, [])
+
+    async def test_should_forward_params_to_store(self) -> None:
+        """Validate that limit, threshold, and filters reach the store."""
+        mock_embedder = AsyncMock()
+        mock_embedder.embed = AsyncMock(return_value=[0.1] * 10)
+
+        mock_store = AsyncMock()
+        mock_store.search = AsyncMock(return_value=[])
+
+        _sc_mod._embedder = mock_embedder
+        _sc_mod._store = mock_store
+
+        try:
+
+            async def _assert(session: ClientSession) -> None:
+                await session.call_tool(
+                    _SEARCH_CONTEXT_NAME,
+                    {
+                        "query": "arch",
+                        "limit": 3,
+                        "similarity_threshold": 0.8,
+                        "filters": {"type": "decision"},
+                    },
+                )
+                mock_embedder.embed.assert_awaited_once_with("arch")
+                mock_store.search.assert_awaited_once()
+                kw = mock_store.search.call_args.kwargs
+                assert kw["limit"] == 3
+                assert kw["similarity_threshold"] == 0.8
+                assert kw["filters"] == {"doc_type": "decision"}
+
+            await _run_tool_test(_assert)
+        finally:
+            _sc_mod._embedder = None
+            _sc_mod._store = None
 
 
 # ---------------------------------------------------------------------------
@@ -268,53 +527,6 @@ class TestSearchContextToolCalling:
 
 class TestSearchContextEdgeCases:
     """Tests for edge cases in the search_context tool."""
-
-    async def test_should_return_empty_for_nonexistent_filter_key(self) -> None:
-        """Validate that filtering by a key not in the data returns 0 results."""
-
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "filters": {"nonexistent_key": "value"}},
-            )
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert data["total_results"] == 0
-            assert data["results"] == []
-
-        await _run_tool_test(_assert)
-
-    async def test_should_support_case_insensitive_filter(self) -> None:
-        """Validate that filter values are matched case-insensitively."""
-
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "filters": {"type": "DECISION"}},
-            )
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert data["total_results"] >= 1
-            for item in data["results"]:
-                assert item["type"].lower() == "decision"
-
-        await _run_tool_test(_assert)
-
-    async def test_should_not_filter_with_empty_dict(self) -> None:
-        """Validate that filters={} behaves the same as no filters."""
-
-        async def _assert(session: ClientSession) -> None:
-            result_no_filters = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test"},
-            )
-            result_empty_filters = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "filters": {}},
-            )
-            data_no = json.loads(result_no_filters.content[0].text)  # type: ignore[union-attr]
-            data_empty = json.loads(result_empty_filters.content[0].text)  # type: ignore[union-attr]
-            assert data_no["total_results"] == data_empty["total_results"]
-
-        await _run_tool_test(_assert)
 
     async def test_should_return_error_for_negative_limit(self) -> None:
         """Validate that limit=-1 returns isError=True."""
@@ -328,78 +540,84 @@ class TestSearchContextEdgeCases:
 
         await _run_tool_test(_assert)
 
-    async def test_should_return_all_when_limit_exceeds_total(self) -> None:
-        """Validate that limit > total results returns all available."""
+    async def test_should_handle_embedding_error(self) -> None:
+        """Validate that embedding errors are wrapped as SEARCH_FAILED."""
+        mock_embedder = AsyncMock()
+        mock_embedder.embed = AsyncMock(
+            side_effect=RuntimeError("Embedding API down"),
+        )
+        mock_store = AsyncMock()
+
+        _sc_mod._embedder = mock_embedder
+        _sc_mod._store = mock_store
+
+        try:
+
+            async def _assert(session: ClientSession) -> None:
+                result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test"})
+                assert result.isError is True
+                text = result.content[0].text  # type: ignore[union-attr]
+                assert "SEARCH_FAILED" in text
+
+            await _run_tool_test(_assert)
+        finally:
+            _sc_mod._embedder = None
+            _sc_mod._store = None
+
+    async def test_should_handle_store_search_error(self) -> None:
+        """Validate that store search errors are wrapped as SEARCH_FAILED."""
+        mock_embedder = AsyncMock()
+        mock_embedder.embed = AsyncMock(return_value=[0.1] * 1536)
+        mock_store = AsyncMock()
+        mock_store.search = AsyncMock(
+            side_effect=RuntimeError("DB connection lost"),
+        )
+
+        _sc_mod._embedder = mock_embedder
+        _sc_mod._store = mock_store
+
+        try:
+
+            async def _assert(session: ClientSession) -> None:
+                result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test"})
+                assert result.isError is True
+                text = result.content[0].text  # type: ignore[union-attr]
+                assert "SEARCH_FAILED" in text
+
+            await _run_tool_test(_assert)
+        finally:
+            _sc_mod._embedder = None
+            _sc_mod._store = None
+
+    async def test_should_pass_single_result_correctly(self) -> None:
+        """Validate that a single store result formats correctly."""
 
         async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "limit": 100},
-            )
+            result = await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test", "limit": 1})
             data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert data["total_results"] >= 1
-            assert data["total_results"] <= 100
+            assert data["total_results"] == 1
+            assert data["results"][0]["chunk_id"] == 1
 
-        await _run_tool_test(_assert)
+        await _run_configured_tool_test(_assert, [_SAMPLE_RESULTS[0]])
 
-    async def test_should_handle_query_with_special_characters(self) -> None:
-        """Validate that queries with unicode/special chars are accepted."""
+    async def test_should_pass_none_filters_to_store(self) -> None:
+        """Validate that no filters passes None to the store."""
+        mock_embedder = AsyncMock()
+        mock_embedder.embed = AsyncMock(return_value=[0.1] * 10)
+        mock_store = AsyncMock()
+        mock_store.search = AsyncMock(return_value=[])
 
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "búsca semântica 🔍 café"},
-            )
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert data["query"] == "búsca semântica 🔍 café"
+        _sc_mod._embedder = mock_embedder
+        _sc_mod._store = mock_store
 
-        await _run_tool_test(_assert)
+        try:
 
-    async def test_should_combine_filter_threshold_and_limit(self) -> None:
-        """Validate that filter + threshold + limit work together."""
+            async def _assert(session: ClientSession) -> None:
+                await session.call_tool(_SEARCH_CONTEXT_NAME, {"query": "test"})
+                kw = mock_store.search.call_args.kwargs
+                assert kw["filters"] is None
 
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {
-                    "query": "test",
-                    "filters": {"type": "documentation"},
-                    "similarity_threshold": 0.80,
-                    "limit": 1,
-                },
-            )
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert len(data["results"]) <= 1
-            for item in data["results"]:
-                assert item["type"] == "documentation"
-                assert item["similarity"] >= 0.80
-
-        await _run_tool_test(_assert)
-
-    async def test_should_handle_threshold_exactly_matching_score(self) -> None:
-        """Validate that threshold==similarity includes that result."""
-
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "similarity_threshold": 0.87},
-            )
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            sims = [r["similarity"] for r in data["results"]]
-            # ctx-002 has similarity 0.87, should be included
-            assert 0.87 in sims
-
-        await _run_tool_test(_assert)
-
-    async def test_should_return_all_with_threshold_zero(self) -> None:
-        """Validate that threshold=0.0 returns all mock results."""
-
-        async def _assert(session: ClientSession) -> None:
-            result = await session.call_tool(
-                _SEARCH_CONTEXT_NAME,
-                {"query": "test", "similarity_threshold": 0.0},
-            )
-            data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-            assert data["total_results"] == 3
-
-        await _run_tool_test(_assert)
+            await _run_tool_test(_assert)
+        finally:
+            _sc_mod._embedder = None
+            _sc_mod._store = None

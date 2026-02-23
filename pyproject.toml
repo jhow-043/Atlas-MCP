@@ -21,6 +21,8 @@ dependencies = [
     "mcp",
     "asyncpg>=0.29",
     "python-dotenv>=1.0",
+    "openai>=1.0",
+    "numpy>=1.26",
 ]
 
 [project.urls]
@@ -39,6 +41,9 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.4",
     "mypy>=1.10",
+]
+local-embeddings = [
+    "sentence-transformers>=2.0",
 ]
 
 [build-system]
@@ -79,4 +84,16 @@ packages = ["atlas_mcp"]
 
 [[tool.mypy.overrides]]
 module = "asyncpg"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "openai"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "sentence_transformers"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "numpy"
 ignore_missing_imports = true
