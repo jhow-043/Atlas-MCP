@@ -292,9 +292,7 @@ class TestSearchContextViaMCP:
                 "search_context",
                 {"query": "test", "similarity_threshold": 1.5},
             )
-            _assert_error_contains(
-                result, "INVALID_PARAMETER", "similarity_threshold"
-            )
+            _assert_error_contains(result, "INVALID_PARAMETER", "similarity_threshold")
 
         await _run_tool_test(_assert)
 
@@ -306,9 +304,7 @@ class TestSearchContextViaMCP:
                 "search_context",
                 {"query": "test", "similarity_threshold": -0.5},
             )
-            _assert_error_contains(
-                result, "INVALID_PARAMETER", "similarity_threshold"
-            )
+            _assert_error_contains(result, "INVALID_PARAMETER", "similarity_threshold")
 
         await _run_tool_test(_assert)
 
@@ -401,9 +397,7 @@ class TestPlanFeatureValidation:
                 "plan_feature",
                 {"title": "Feature", "description": "D" * 10_001},
             )
-            _assert_error_contains(
-                result, "INVALID_PARAMETER", "description", "max"
-            )
+            _assert_error_contains(result, "INVALID_PARAMETER", "description", "max")
 
         await _run_tool_test(_assert)
 
@@ -540,9 +534,7 @@ class TestAnalyzeBugValidation:
                 "analyze_bug",
                 {"title": "Bug", "description": "X" * 10_001},
             )
-            _assert_error_contains(
-                result, "INVALID_PARAMETER", "description", "max"
-            )
+            _assert_error_contains(result, "INVALID_PARAMETER", "description", "max")
 
         await _run_tool_test(_assert)
 

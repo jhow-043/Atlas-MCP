@@ -1,6 +1,6 @@
 [project]
 name = "atlas-mcp"
-version = "0.0.1"
+version = "0.1.0"
 description = "Production-grade MCP Server for structured context and RAG in software engineering projects"
 readme = "README.md"
 license = {text = "MIT"}
@@ -9,7 +9,7 @@ authors = [
     {name = "jhow-043"},
 ]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",

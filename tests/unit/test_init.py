@@ -25,8 +25,8 @@ class TestPackageInit:
         assert all(part.isdigit() for part in parts)
 
     def test_should_match_expected_version(self) -> None:
-        """Validate current version is 0.0.1."""
-        assert atlas_mcp.__version__ == "0.0.1"
+        """Validate current version is 0.1.0."""
+        assert atlas_mcp.__version__ == "0.1.0"
 
 
 class TestMain:

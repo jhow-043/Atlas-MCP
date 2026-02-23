@@ -75,7 +75,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - CONTRIBUTING.md atualizado com setup Docker, testes e guia de extensão
   - CHANGELOG.md consolidado com todas as fases (0–4)
   - Hardening de validação de inputs nas tools
-  - Testes de edge cases e validação robusta
+  - Testes de edge cases e validação robusta (81 cenários)
+  - Version bump para `0.1.0` e Development Status `Alpha`
 
 ## [0.0.1] - 2026-02-19
 
