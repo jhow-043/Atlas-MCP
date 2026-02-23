@@ -17,5 +17,27 @@ services:
       timeout: 5s
       retries: 5
 
+  atlas-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atlas-mcp-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ATLAS_TRANSPORT: ${ATLAS_TRANSPORT:-stdio}
+      ATLAS_LOG_LEVEL: ${ATLAS_LOG_LEVEL:-INFO}
+      ATLAS_LOG_FORMAT: ${ATLAS_LOG_FORMAT:-json}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-atlas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-atlas_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-atlas_mcp}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    stdin_open: true
+
 volumes:
   atlas_data:
