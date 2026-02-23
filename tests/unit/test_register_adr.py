@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 
 from atlas_mcp.tools.register_adr import (
     _discover_adr_dir,
@@ -300,8 +301,8 @@ class TestRegisterAdrTool:
         register_register_adr(mock_server)
 
         assert captured_fn is not None
-        result = captured_fn(title="", context="C", decision="D", consequences="E")
-        assert "error" in result
+        with pytest.raises(ToolError):
+            captured_fn(title="", context="C", decision="D", consequences="E")
 
     @patch("atlas_mcp.tools.register_adr._discover_adr_dir")
     def test_should_reject_empty_context(
@@ -326,8 +327,8 @@ class TestRegisterAdrTool:
         register_register_adr(mock_server)
 
         assert captured_fn is not None
-        result = captured_fn(title="T", context="", decision="D", consequences="E")
-        assert "error" in result
+        with pytest.raises(ToolError):
+            captured_fn(title="T", context="", decision="D", consequences="E")
 
     @patch("atlas_mcp.tools.register_adr._discover_adr_dir")
     def test_should_reject_empty_decision(
@@ -352,8 +353,8 @@ class TestRegisterAdrTool:
         register_register_adr(mock_server)
 
         assert captured_fn is not None
-        result = captured_fn(title="T", context="C", decision="", consequences="E")
-        assert "error" in result
+        with pytest.raises(ToolError):
+            captured_fn(title="T", context="C", decision="", consequences="E")
 
     @patch("atlas_mcp.tools.register_adr._discover_adr_dir")
     def test_should_reject_empty_consequences(
@@ -378,8 +379,8 @@ class TestRegisterAdrTool:
         register_register_adr(mock_server)
 
         assert captured_fn is not None
-        result = captured_fn(title="T", context="C", decision="D", consequences="")
-        assert "error" in result
+        with pytest.raises(ToolError):
+            captured_fn(title="T", context="C", decision="D", consequences="")
 
     @patch("atlas_mcp.tools.register_adr._discover_adr_dir")
     def test_should_include_tags_in_result(
@@ -437,6 +438,5 @@ class TestRegisterAdrTool:
         register_register_adr(mock_server)
 
         assert captured_fn is not None
-        result = captured_fn(title="T", context="C", decision="D", consequences="E")
-        assert "error" in result
-        assert "docs/adr" in result["error"]
+        with pytest.raises(ToolError, match="docs/adr"):
+            captured_fn(title="T", context="C", decision="D", consequences="E")

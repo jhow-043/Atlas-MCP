@@ -12,6 +12,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mcp.server.fastmcp.exceptions import ToolError
+
+from atlas_mcp.protocol.errors import format_tool_error
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
@@ -105,6 +109,93 @@ def _render_adr_markdown(
     return "\n".join(sections)
 
 
+_MAX_TITLE_LENGTH = 200
+_MAX_FIELD_LENGTH = 10_000
+
+
+def _validate_adr_params(
+    title: str,
+    context: str,
+    decision: str,
+    consequences: str,
+) -> None:
+    """Validate register_adr parameters.
+
+    Args:
+        title: The ADR title.
+        context: The context/problem description.
+        decision: The decision made.
+        consequences: The consequences of the decision.
+
+    Raises:
+        ToolError: If any required parameter is empty or too long.
+    """
+    if not title or not title.strip():
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                "Parameter 'title' must be a non-empty string",
+                {"parameter": "title"},
+            )
+        )
+    if len(title) > _MAX_TITLE_LENGTH:
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                f"Parameter 'title' exceeds maximum length of {_MAX_TITLE_LENGTH}",
+                {"parameter": "title", "max_length": _MAX_TITLE_LENGTH},
+            )
+        )
+    if not context or not context.strip():
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                "Parameter 'context' must be a non-empty string",
+                {"parameter": "context"},
+            )
+        )
+    if len(context) > _MAX_FIELD_LENGTH:
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                f"Parameter 'context' exceeds maximum length of {_MAX_FIELD_LENGTH}",
+                {"parameter": "context", "max_length": _MAX_FIELD_LENGTH},
+            )
+        )
+    if not decision or not decision.strip():
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                "Parameter 'decision' must be a non-empty string",
+                {"parameter": "decision"},
+            )
+        )
+    if len(decision) > _MAX_FIELD_LENGTH:
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                f"Parameter 'decision' exceeds maximum length of {_MAX_FIELD_LENGTH}",
+                {"parameter": "decision", "max_length": _MAX_FIELD_LENGTH},
+            )
+        )
+    if not consequences or not consequences.strip():
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                "Parameter 'consequences' must be a non-empty string",
+                {"parameter": "consequences"},
+            )
+        )
+    if len(consequences) > _MAX_FIELD_LENGTH:
+        raise ToolError(
+            format_tool_error(
+                "INVALID_PARAMETER",
+                f"Parameter 'consequences' exceeds maximum length of {_MAX_FIELD_LENGTH}",
+                {"parameter": "consequences", "max_length": _MAX_FIELD_LENGTH},
+            )
+        )
+
+
 def register_register_adr(server: FastMCP) -> None:
     """Register the ``register_adr`` tool on the MCP server.
 
@@ -138,20 +229,28 @@ def register_register_adr(server: FastMCP) -> None:
 
         Returns:
             A dictionary with the created ADR metadata.
+
+        Raises:
+            ToolError: If required parameters are empty or ADR directory
+                cannot be found.
         """
-        if not title.strip():
-            return {"error": "title cannot be empty"}
-        if not context.strip():
-            return {"error": "context cannot be empty"}
-        if not decision.strip():
-            return {"error": "decision cannot be empty"}
-        if not consequences.strip():
-            return {"error": "consequences cannot be empty"}
+        _validate_adr_params(title, context, decision, consequences)
+
+        title = title.strip()
+        context = context.strip()
+        decision = decision.strip()
+        consequences = consequences.strip()
 
         try:
             adr_dir = _discover_adr_dir()
-        except FileNotFoundError:
-            return {"error": "Could not locate docs/adr directory"}
+        except FileNotFoundError as exc:
+            raise ToolError(
+                format_tool_error(
+                    "ADR_DIR_NOT_FOUND",
+                    "Could not locate docs/adr directory. Ensure the project structure is correct.",
+                    {"expected_path": "docs/adr"},
+                )
+            ) from exc
 
         adr_id = _next_adr_id(adr_dir)
         filename = f"ADR-{adr_id:03d}-{_slugify(title)}.md"
