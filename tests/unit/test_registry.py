@@ -1,4 +1,4 @@
-"""Tests for the ResourceRegistry and core_stack resource."""
+"""Tests for the ResourceRegistry and core resources."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from atlas_mcp.resources.core_stack import (
     _CORE_STACK_DESCRIPTION,
     _CORE_STACK_NAME,
     _CORE_STACK_URI,
-    _STACK_DATA,
     register_core_stack,
 )
 from atlas_mcp.resources.registry import ResourceRegistry
@@ -66,7 +65,7 @@ class TestResourceRegistry:
         ResourceRegistry.register(server)
 
         resources = server._resource_manager.list_resources()
-        assert len(resources) >= 1
+        assert len(resources) >= 3
 
     def test_should_register_core_stack_resource(self) -> None:
         """Validate that context://core/stack appears after registration."""
@@ -113,7 +112,7 @@ class TestCoreStackResource:
         async def _assert(session: ClientSession) -> None:
             result = await session.read_resource(_CORE_STACK_URI)
             data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
-            assert data["project"] == "Atlas MCP"
+            assert data["project"] == "atlas-mcp"
 
         await _run_resource_test(_assert)
 
@@ -129,23 +128,35 @@ class TestCoreStackResource:
         await _run_resource_test(_assert)
 
     async def test_should_contain_database_info(self) -> None:
-        """Validate that the JSON contains database information."""
+        """Validate that the JSON contains dependency info."""
 
         async def _assert(session: ClientSession) -> None:
             result = await session.read_resource(_CORE_STACK_URI)
             data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
-            assert data["database"]["name"] == "PostgreSQL"
-            assert "pgvector" in data["database"]["extensions"]
+            assert isinstance(data["dependencies"], list)
+            assert any("asyncpg" in d for d in data["dependencies"])
 
         await _run_resource_test(_assert)
 
     async def test_should_match_stack_data_constant(self) -> None:
-        """Validate that the resource content matches _STACK_DATA."""
+        """Validate that the resource returns expected keys."""
 
         async def _assert(session: ClientSession) -> None:
             result = await session.read_resource(_CORE_STACK_URI)
             data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
-            assert data == _STACK_DATA
+            expected_keys = {
+                "project",
+                "version",
+                "language",
+                "runtime",
+                "package_manager",
+                "dependencies",
+                "dev_dependencies",
+                "linting",
+                "type_checking",
+                "ci",
+            }
+            assert expected_keys.issubset(data.keys())
 
         await _run_resource_test(_assert)
 
@@ -200,12 +211,12 @@ class TestCoreStackResource:
         await _run_resource_test(_assert)
 
     async def test_should_contain_sdk_info(self) -> None:
-        """Validate that the JSON contains SDK information."""
+        """Validate that the JSON contains dependency list with mcp."""
 
         async def _assert(session: ClientSession) -> None:
             result = await session.read_resource(_CORE_STACK_URI)
             data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
-            assert data["sdk"]["name"] == "mcp"
+            assert any("mcp" in d for d in data["dependencies"])
 
         await _run_resource_test(_assert)
 
@@ -220,23 +231,24 @@ class TestCoreStackResource:
         await _run_resource_test(_assert)
 
     async def test_should_contain_testing_tools(self) -> None:
-        """Validate that the JSON contains testing tool list."""
+        """Validate that the JSON contains dev dependency list."""
 
         async def _assert(session: ClientSession) -> None:
             result = await session.read_resource(_CORE_STACK_URI)
             data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
-            assert "pytest" in data["testing"]
-            assert "pytest-asyncio" in data["testing"]
+            dev_deps_str = " ".join(data["dev_dependencies"])
+            assert "pytest" in dev_deps_str
 
         await _run_resource_test(_assert)
 
     async def test_should_contain_linting_tool(self) -> None:
-        """Validate that the JSON contains the linting tool."""
+        """Validate that the JSON contains the linting configuration."""
 
         async def _assert(session: ClientSession) -> None:
             result = await session.read_resource(_CORE_STACK_URI)
             data = json.loads(result.contents[0].text)  # type: ignore[union-attr]
-            assert data["linting"] == "Ruff"
+            assert data["linting"]["tool"] == "Ruff"
+            assert data["linting"]["line_length"] == 100
 
         await _run_resource_test(_assert)
 

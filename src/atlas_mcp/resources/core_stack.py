@@ -1,10 +1,12 @@
-"""Resource: context://core/stack — Core technology stack (mock data)."""
+"""Resource: context://core/stack — Core technology stack (real data)."""
 
 from __future__ import annotations
 
 import json
 import logging
 from typing import TYPE_CHECKING
+
+from atlas_mcp.context.core import CoreContextProvider
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -15,37 +17,17 @@ _CORE_STACK_URI = "context://core/stack"
 _CORE_STACK_NAME = "core_stack"
 _CORE_STACK_DESCRIPTION = "Core technology stack for the Atlas MCP project"
 
-_STACK_DATA: dict[str, object] = {
-    "project": "Atlas MCP",
-    "language": {"name": "Python", "version": ">=3.12"},
-    "runtime": "Asyncio",
-    "sdk": {
-        "name": "mcp",
-        "description": "SDK oficial Python do Model Context Protocol",
-    },
-    "package_manager": "uv",
-    "database": {
-        "name": "PostgreSQL",
-        "version": "16",
-        "extensions": ["pgvector"],
-    },
-    "testing": ["pytest", "pytest-asyncio", "pytest-cov"],
-    "linting": "Ruff",
-    "type_checking": {"tool": "mypy", "mode": "strict"},
-    "ci": "GitHub Actions",
-}
-
 
 def register_core_stack(server: FastMCP) -> None:
     """Register the ``context://core/stack`` resource on *server*.
 
     The resource returns a JSON representation of the project's
-    technology stack.  In this phase the data is **mock/static**;
-    it will be connected to live project metadata in Phase 2.
+    technology stack read from ``pyproject.toml`` and ``ruff.toml``.
 
     Args:
         server: The FastMCP server instance to register on.
     """
+    provider = CoreContextProvider()
 
     @server.resource(
         _CORE_STACK_URI,
@@ -55,6 +37,6 @@ def register_core_stack(server: FastMCP) -> None:
     )
     def core_stack() -> str:
         """Return the core technology stack as JSON."""
-        return json.dumps(_STACK_DATA, indent=2)
+        return json.dumps(provider.get_stack(), indent=2)
 
     logger.info("Registered resource %s", _CORE_STACK_URI)
