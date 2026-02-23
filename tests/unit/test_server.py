@@ -25,3 +25,11 @@ class TestCreateServer:
         server = create_server()
         assert server.instructions is not None
         assert "Atlas MCP" in server.instructions
+
+    def test_should_set_server_version(self) -> None:
+        """Validate that the server version matches __version__."""
+        from atlas_mcp import __version__
+
+        server = create_server()
+        init_options = server._mcp_server.create_initialization_options()
+        assert init_options.server_version == __version__

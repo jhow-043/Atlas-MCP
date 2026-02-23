@@ -20,6 +20,10 @@ _SERVER_INSTRUCTIONS = (
 def create_server() -> FastMCP:
     """Create and configure the Atlas MCP server instance.
 
+    The server is created with the project name, instructions, and version.
+    The version is set on the low-level MCP server so that capability
+    negotiation returns the Atlas MCP version (not the SDK version).
+
     Returns:
         A configured FastMCP server ready to run.
     """
@@ -27,6 +31,7 @@ def create_server() -> FastMCP:
         name=_SERVER_NAME,
         instructions=_SERVER_INSTRUCTIONS,
     )
+    server._mcp_server.version = __version__
 
     logger.info("Atlas MCP Server v%s created with stdio transport", __version__)
 
