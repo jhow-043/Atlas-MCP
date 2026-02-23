@@ -42,7 +42,9 @@ class TestMain:
         mock_async_main: MagicMock,
     ) -> None:
         """Validate that main() executes without raising exceptions."""
-        mock_settings.return_value = MagicMock(log_level="INFO", log_format="text", transport="stdio")
+        mock_settings.return_value = MagicMock(
+            log_level="INFO", log_format="text", transport="stdio"
+        )
         main(argv=[])
 
     @patch("atlas_mcp.__main__._async_main")
@@ -58,7 +60,9 @@ class TestMain:
         """Validate that main() logs a startup message with version."""
         import logging
 
-        mock_settings.return_value = MagicMock(log_level="INFO", log_format="text", transport="stdio")
+        mock_settings.return_value = MagicMock(
+            log_level="INFO", log_format="text", transport="stdio"
+        )
         with caplog.at_level(logging.INFO):
             main(argv=[])
         assert "Atlas MCP Server" in caplog.text
