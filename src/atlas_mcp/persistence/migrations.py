@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS chunks (
     content TEXT NOT NULL,
     section_path TEXT NOT NULL DEFAULT '',
     chunk_index INTEGER NOT NULL DEFAULT 0,
-    embedding vector NOT NULL,
+    embedding vector(1536) NOT NULL,
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

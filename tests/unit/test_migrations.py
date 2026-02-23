@@ -83,7 +83,7 @@ class TestSQLConstants:
         assert "content TEXT NOT NULL" in CHUNKS_TABLE_SQL
         assert "section_path TEXT NOT NULL" in CHUNKS_TABLE_SQL
         assert "chunk_index INTEGER NOT NULL" in CHUNKS_TABLE_SQL
-        assert "embedding vector NOT NULL" in CHUNKS_TABLE_SQL
+        assert "embedding vector(1536) NOT NULL" in CHUNKS_TABLE_SQL
         assert "metadata JSONB" in CHUNKS_TABLE_SQL
         assert "REFERENCES documents(id)" in CHUNKS_TABLE_SQL
         assert "ON DELETE CASCADE" in CHUNKS_TABLE_SQL

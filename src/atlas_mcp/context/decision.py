@@ -168,16 +168,20 @@ class DecisionContextProvider:
 
         Returns:
             Path to the ``docs/adr/`` directory.
-
-        Raises:
-            FileNotFoundError: If the directory cannot be found.
+            Falls back to a subdirectory of the package location
+            with a warning if the directory cannot be found
+            (e.g. inside a Docker container).
         """
         current = Path(__file__).resolve().parent
         for parent in [current, *current.parents]:
             adr_path = parent / "docs" / "adr"
             if adr_path.is_dir():
                 return adr_path
-        raise FileNotFoundError("Could not find docs/adr/ directory")
+        logger.warning(
+            "Could not find docs/adr/ directory — "
+            "ADR resources will return empty data (running inside container?)."
+        )
+        return current / "docs" / "adr"
 
     def _load_adrs(self) -> dict[int, ADRRecord]:
         """Load and cache all ADRs from the filesystem.

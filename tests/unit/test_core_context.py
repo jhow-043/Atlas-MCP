@@ -32,19 +32,15 @@ class TestCoreContextProviderInit:
         provider = CoreContextProvider()
         assert (provider._root / "pyproject.toml").exists()
 
-    def test_should_raise_if_no_pyproject(self, tmp_path: Path) -> None:
-        """Validate error when no pyproject.toml is found.
+    def test_should_return_empty_dict_if_no_pyproject(self, tmp_path: Path) -> None:
+        """Validate graceful fallback when no pyproject.toml is found.
 
-        Note: This test patches the discovery mechanism by using a
-        path far from any pyproject.toml.
+        When running inside a container (or any path without pyproject.toml),
+        _load_pyproject returns an empty dict instead of raising.
         """
-        # Providing an explicit root that lacks pyproject.toml still works
-        # since _discover_root is only called when no root is given.
-        # We test the provider with an explicit root instead.
         provider = CoreContextProvider(project_root=tmp_path)
-        # It won't fail until we try to load pyproject.toml
-        with pytest.raises(FileNotFoundError):
-            provider._load_pyproject()
+        result = provider._load_pyproject()
+        assert result == {}
 
 
 class TestCoreContextProviderStack:

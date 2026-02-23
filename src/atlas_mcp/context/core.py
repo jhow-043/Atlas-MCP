@@ -42,26 +42,34 @@ class CoreContextProvider:
 
         Returns:
             The directory containing ``pyproject.toml``.
-
-        Raises:
-            FileNotFoundError: If ``pyproject.toml`` cannot be found.
+            Falls back to the package directory with a warning if
+            ``pyproject.toml`` is not found (e.g. inside a Docker
+            container where only the wheel is installed).
         """
         current = Path(__file__).resolve().parent
         for parent in [current, *current.parents]:
             if (parent / "pyproject.toml").exists():
                 return parent
-        raise FileNotFoundError("Could not find pyproject.toml in any parent directory")
+        logger.warning(
+            "Could not find pyproject.toml in any parent directory — "
+            "using package directory as root (running inside container?)."
+        )
+        return current
 
     def _load_pyproject(self) -> dict[str, Any]:
         """Load and cache ``pyproject.toml``.
 
         Returns:
-            The parsed TOML data.
+            The parsed TOML data, or empty dict if file doesn't exist.
         """
         if self._pyproject is None:
             pyproject_path = self._root / "pyproject.toml"
-            with pyproject_path.open("rb") as f:
-                self._pyproject = tomllib.load(f)
+            if pyproject_path.exists():
+                with pyproject_path.open("rb") as f:
+                    self._pyproject = tomllib.load(f)
+            else:
+                logger.warning("pyproject.toml not found at %s", pyproject_path)
+                self._pyproject = {}
         return self._pyproject
 
     def _load_ruff_config(self) -> dict[str, Any]:
