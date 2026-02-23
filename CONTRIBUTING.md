@@ -9,6 +9,7 @@ Obrigado pelo interesse em contribuir com o Atlas MCP! Este documento descreve c
 - Python ≥ 3.12
 - [uv](https://docs.astral.sh/uv/) (gerenciador de pacotes)
 - Git
+- Docker e Docker Compose (para testes de integração)
 
 ## Setup Local
 
@@ -20,10 +21,64 @@ cd Atlas-MCP
 # Instale todas as dependências (incluindo dev)
 uv sync --all-extras
 
+# Copie o template de variáveis de ambiente
+cp .env.example .env
+# Edite .env com sua OPENAI_API_KEY (ou use sentence-transformers)
+
+# Inicie o PostgreSQL (necessário para testes de integração)
+docker compose up -d postgres
+
 # Verifique se está tudo funcionando
-uv run pytest
 uv run ruff check .
+uv run ruff format --check .
 uv run mypy src/
+uv run pytest
+```
+
+### Setup sem Docker (modo degradado)
+
+Para contribuir sem Docker, testes unitários funcionam normalmente:
+
+```bash
+uv sync --all-extras
+uv run pytest tests/unit/
+```
+
+Testes de integração serão pulados automaticamente se o PostgreSQL não estiver disponível.
+
+---
+
+## Executando Testes
+
+```bash
+# Todos os testes (unit + integration se DB disponível)
+uv run pytest
+
+# Apenas testes unitários (sem Docker)
+uv run pytest tests/unit/
+
+# Apenas testes de integração (requer Docker)
+uv run pytest tests/integration/
+
+# Com cobertura
+uv run pytest --cov=src/atlas_mcp --cov-report=term-missing
+
+# Teste específico
+uv run pytest tests/unit/test_server.py -v
+
+# Testes em modo verbose
+uv run pytest -v --tb=short
+```
+
+## Validação Completa
+
+Antes de abrir um PR, garanta que **todos** os checks passam:
+
+```bash
+uv run ruff check .           # Lint
+uv run ruff format --check .  # Formatação
+uv run mypy src/              # Type checking (strict)
+uv run pytest                 # Testes
 ```
 
 ---
@@ -124,3 +179,58 @@ O desenvolvimento segue fases com no máximo **8 tarefas** cada, obedecendo o ci
 > **Planejamento → Revisão → Aprovação → Execução**
 
 Detalhes completos: [`.github/governance/development-governance.md`](.github/governance/development-governance.md)
+
+---
+
+## Como Adicionar uma Nova Tool
+
+1. Crie o módulo em `src/atlas_mcp/tools/` (ex: `my_tool.py`)
+2. Implemente a função `register_my_tool(server: FastMCP)` com o decorator `@server.tool()`
+3. Registre a tool no `ToolExecutor` em `src/atlas_mcp/tools/executor.py`
+4. Adicione testes unitários em `tests/unit/test_my_tool.py`
+5. Documente a tool no README e no guia de uso
+
+### Template básico
+
+```python
+"""Tool: my_tool — Description of the tool."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
+
+logger = logging.getLogger(__name__)
+
+def register_my_tool(server: FastMCP) -> None:
+    """Register the my_tool tool on the server."""
+
+    @server.tool(name="my_tool", description="...")
+    async def my_tool(param: str) -> str:
+        """Tool implementation."""
+        # Implementação
+        return "result"
+```
+
+## Como Adicionar um Novo Resource
+
+1. Crie o módulo em `src/atlas_mcp/resources/` (ex: `my_resource.py`)
+2. Implemente a função `register_my_resource(server: FastMCP)` com o decorator `@server.resource()`
+3. Registre o resource no `ResourceRegistry` em `src/atlas_mcp/resources/registry.py`
+4. Adicione testes unitários em `tests/unit/test_my_resource.py`
+5. Documente o resource no README e no guia de uso
+
+---
+
+## Documentação Adicional
+
+| Documento | Descrição |
+|-----------|-----------|
+| [Configuração](docs/configuration.md) | Variáveis de ambiente detalhadas |
+| [Uso](docs/usage.md) | Exemplos com Claude Desktop e MCP Inspector |
+| [Deployment](docs/deployment.md) | Docker Compose em produção |
+| [Arquitetura](docs/architecture/context.md) | Contexto e design do projeto |
+| [ADRs](docs/adr/) | Architecture Decision Records |
