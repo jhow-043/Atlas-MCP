@@ -32,24 +32,35 @@ class TestPackageInit:
 class TestMain:
     """Tests for the __main__ entry point."""
 
-    @patch("atlas_mcp.__main__.ProtocolHandler")
-    def test_should_run_main_without_error(self, mock_handler_cls: MagicMock) -> None:
+    @patch("atlas_mcp.__main__._async_main")
+    @patch("atlas_mcp.__main__.setup_logging")
+    @patch("atlas_mcp.__main__.Settings.from_env")
+    def test_should_run_main_without_error(
+        self,
+        mock_settings: MagicMock,
+        mock_logging: MagicMock,
+        mock_async_main: MagicMock,
+    ) -> None:
         """Validate that main() executes without raising exceptions."""
-        mock_handler_cls.return_value.run = MagicMock()
-        main()
+        mock_settings.return_value = MagicMock(log_level="INFO", log_format="text", transport="stdio")
+        main(argv=[])
 
-    @patch("atlas_mcp.__main__.ProtocolHandler")
+    @patch("atlas_mcp.__main__._async_main")
+    @patch("atlas_mcp.__main__.setup_logging")
+    @patch("atlas_mcp.__main__.Settings.from_env")
     def test_should_log_startup_message(
         self,
-        mock_handler_cls: MagicMock,
+        mock_settings: MagicMock,
+        mock_logging: MagicMock,
+        mock_async_main: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Validate that main() logs a startup message with version."""
         import logging
 
-        mock_handler_cls.return_value.run = MagicMock()
+        mock_settings.return_value = MagicMock(log_level="INFO", log_format="text", transport="stdio")
         with caplog.at_level(logging.INFO):
-            main()
+            main(argv=[])
         assert "Atlas MCP Server" in caplog.text
         assert atlas_mcp.__version__ in caplog.text
 
