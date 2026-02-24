@@ -173,11 +173,15 @@ v<MAJOR>.<MINOR>.<PATCH>
 
 ---
 
-## 7. Retenção de Branches
+## 7. Retenção e Limpeza de Branches
 
-- Branches de tarefa (`TIPO/P#-D#`): **mantidas** após merge para histórico.
-- Branches de fase (`phase/P#`): **mantidas** após merge para histórico.
-- Branches de hotfix (`hotfix/*`): **mantidas** após merge para histórico.
+- Branches de tarefa (`TIPO/P#-D#`): **podem ser deletadas** após merge bem-sucedido
+  na branch de fase correspondente. O histórico é preservado pelos commits no grafo git.
+- Branches de fase (`phase/P#`): **podem ser deletadas** após merge em `develop` e
+  subsequente merge em `main`. Tags marcam os pontos de referência de cada fase.
+- Branches de hotfix (`hotfix/*`): **podem ser deletadas** após merge em `main`.
+- A limpeza de branches (local e remota) é recomendada após a conclusão de cada fase
+  para manter o repositório organizado.
 
 ---
 
