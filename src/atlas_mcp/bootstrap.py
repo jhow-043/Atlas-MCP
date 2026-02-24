@@ -125,7 +125,7 @@ class ApplicationBootstrap:
         await self._db.initialize()
         logger.info("Bootstrap: database pool initialized.")
 
-        runner = MigrationRunner(self._db.pool)
+        runner = MigrationRunner(self._db.pool, embedding_dimension=settings.embedding_dimension)
         applied = await runner.run()
         if applied:
             logger.info(
@@ -161,9 +161,12 @@ class ApplicationBootstrap:
         if provider_type == "sentence-transformers":
             provider_type = "sentence_transformer"
 
-        kwargs: dict[str, str | None] = {"model": settings.embedding_model}
+        kwargs: dict[str, str | None] = {}
         if settings.embedding_provider == "openai":
+            kwargs["model"] = settings.embedding_model
             kwargs["api_key"] = settings.openai_api_key
+        else:
+            kwargs["model_name"] = settings.embedding_model
 
         self._embedder = create_embedding_provider(provider_type, **kwargs)
         self._store = VectorStore(self._db)

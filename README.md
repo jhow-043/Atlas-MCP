@@ -1,7 +1,7 @@
 # Atlas MCP
 
 [![CI](https://github.com/jhow-043/Atlas-MCP/actions/workflows/ci.yml/badge.svg)](https://github.com/jhow-043/Atlas-MCP/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen.svg)](https://github.com/jhow-043/Atlas-MCP)
+[![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen.svg)](https://github.com/jhow-043/Atlas-MCP)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blueviolet.svg)](https://github.com/modelcontextprotocol)
@@ -21,9 +21,9 @@ O Atlas MCP implementa o [Model Context Protocol (MCP)](https://github.com/model
 | Fase 2 | Context Layers e Persistência | ✅ Concluída |
 | Fase 3 | Vectorization, RAG e Tools Avançadas | ✅ Concluída |
 | Fase 4 | Bootstrap, Wiring e Servidor Funcional | ✅ Concluída |
-| Fase 5 | Documentação, Hardening e Release | 🔄 Em andamento |
+| Fase 5 | Documentação, Hardening e Release | ✅ Concluída |
 
-> **510+ testes** · **96% de cobertura** · **4 tools** · **7 resources**
+> **640+ testes** · **93% de cobertura** · **4 tools** · **7 resources**
 
 ---
 
@@ -264,7 +264,7 @@ Atlas-MCP/
 │   ├── governance/             # GovernanceService + AuditLogger
 │   ├── persistence/            # DatabaseManager + MigrationRunner
 │   └── vectorization/          # Chunker, Embeddings, VectorStore, Indexing
-├── tests/                      # 510+ testes (96% cobertura)
+├── tests/                      # 640+ testes (93% cobertura)
 │   ├── unit/                   # Testes unitários
 │   └── integration/            # Testes de integração (requer Docker)
 ├── docs/                       # Documentação

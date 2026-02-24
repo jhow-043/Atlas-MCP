@@ -52,8 +52,9 @@ class TestSettingsDefaults:
 class TestSettingsFromEnv:
     """Tests for Settings.from_env()."""
 
+    @patch("atlas_mcp.config.settings.load_dotenv")
     @patch.dict(os.environ, {}, clear=True)
-    def test_should_use_defaults_when_no_env_set(self) -> None:
+    def test_should_use_defaults_when_no_env_set(self, _mock_dotenv: object) -> None:
         """Validate that from_env() returns defaults when env is empty."""
         s = Settings.from_env()
 

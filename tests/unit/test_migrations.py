@@ -11,6 +11,7 @@ from atlas_mcp.persistence.migrations import (
     AUDIT_LOG_TABLE_SQL,
     CHUNKS_INDEX_SQL,
     CHUNKS_TABLE_SQL,
+    DEFAULT_EMBEDDING_DIMENSION,
     DOCUMENTS_INDEX_SQL,
     DOCUMENTS_TABLE_SQL,
     MIGRATION_TABLE_SQL,
@@ -18,6 +19,8 @@ from atlas_mcp.persistence.migrations import (
     PGVECTOR_EXTENSION_SQL,
     Migration,
     MigrationRunner,
+    chunks_table_sql,
+    get_migrations,
 )
 
 
@@ -88,6 +91,31 @@ class TestSQLConstants:
         assert "REFERENCES documents(id)" in CHUNKS_TABLE_SQL
         assert "ON DELETE CASCADE" in CHUNKS_TABLE_SQL
 
+    def test_chunks_table_sql_default_uses_1536(self) -> None:
+        """Validate that chunks_table_sql() defaults to 1536 dimensions."""
+        sql = chunks_table_sql()
+        assert "vector(1536)" in sql
+
+    def test_chunks_table_sql_custom_dimension(self) -> None:
+        """Validate that chunks_table_sql() accepts custom dimension."""
+        sql = chunks_table_sql(384)
+        assert "vector(384)" in sql
+        assert "vector(1536)" not in sql
+
+    def test_chunks_table_sql_preserves_structure(self) -> None:
+        """Validate that custom dimension SQL retains all columns."""
+        sql = chunks_table_sql(768)
+        assert "document_id INTEGER NOT NULL" in sql
+        assert "content TEXT NOT NULL" in sql
+        assert "embedding vector(768) NOT NULL" in sql
+        assert "REFERENCES documents(id)" in sql
+        assert "ON DELETE CASCADE" in sql
+        assert "metadata JSONB" in sql
+
+    def test_default_embedding_dimension_constant(self) -> None:
+        """Validate DEFAULT_EMBEDDING_DIMENSION value."""
+        assert DEFAULT_EMBEDDING_DIMENSION == 1536
+
     def test_chunks_indexes(self) -> None:
         """Validate chunks index SQL."""
         assert "idx_chunks_document_id" in CHUNKS_INDEX_SQL
@@ -97,7 +125,7 @@ class TestSQLConstants:
 
 
 class TestMigrationsRegistry:
-    """Tests for the MIGRATIONS list."""
+    """Tests for the MIGRATIONS list and get_migrations()."""
 
     def test_should_have_sequential_versions(self) -> None:
         """Validate that migration versions are sequential starting at 1."""
@@ -122,6 +150,30 @@ class TestMigrationsRegistry:
         """Validate all migrations have SQL."""
         for m in MIGRATIONS:
             assert m.sql.strip(), f"Migration v{m.version} has empty SQL"
+
+    def test_get_migrations_default_matches_constant(self) -> None:
+        """Validate that get_migrations() default equals MIGRATIONS."""
+        result = get_migrations()
+        assert len(result) == len(MIGRATIONS)
+        for gen, static in zip(result, MIGRATIONS, strict=True):
+            assert gen.version == static.version
+            assert gen.description == static.description
+            assert gen.sql == static.sql
+
+    def test_get_migrations_custom_dimension(self) -> None:
+        """Validate that get_migrations(384) uses 384-dim in v6."""
+        result = get_migrations(384)
+        v6 = next(m for m in result if m.version == 6)
+        assert "vector(384)" in v6.sql
+        assert "vector(1536)" not in v6.sql
+
+    def test_get_migrations_does_not_affect_other_versions(self) -> None:
+        """Validate that custom dimension only affects v6."""
+        default = get_migrations()
+        custom = get_migrations(768)
+        for d, c in zip(default, custom, strict=True):
+            if d.version != 6:
+                assert d.sql == c.sql
 
 
 def _make_mock_pool() -> AsyncMock:
@@ -243,6 +295,23 @@ class TestMigrationRunner:
         applied = await runner.run()
 
         assert len(applied) == 0
+
+    async def test_should_use_custom_dimension_in_default_migrations(self) -> None:
+        """Validate that embedding_dimension is passed to get_migrations."""
+        mock_pool = _make_mock_pool()
+        mock_conn = mock_pool.acquire.return_value.__aenter__.return_value
+        mock_conn.fetch = AsyncMock(return_value=[])
+
+        runner = MigrationRunner(mock_pool, embedding_dimension=384)
+        await runner.run()
+
+        # Find the executed SQL for v6 (chunks table)
+        calls = mock_conn.execute.call_args_list
+        executed_sqls = [c.args[0] if c.args else "" for c in calls]
+        chunks_sql = [s for s in executed_sqls if "CREATE TABLE IF NOT EXISTS chunks" in s]
+        assert len(chunks_sql) == 1
+        assert "vector(384)" in chunks_sql[0]
+        assert "vector(1536)" not in chunks_sql[0]
 
 
 class TestMigrationRunnerGetStatus:
