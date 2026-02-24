@@ -69,18 +69,34 @@ PGVECTOR_EXTENSION_SQL: Final[str] = """\
 CREATE EXTENSION IF NOT EXISTS vector;
 """
 
-CHUNKS_TABLE_SQL: Final[str] = """\
+DEFAULT_EMBEDDING_DIMENSION: Final[int] = 1536
+
+
+def chunks_table_sql(embedding_dimension: int = DEFAULT_EMBEDDING_DIMENSION) -> str:
+    """Return the CREATE TABLE SQL for chunks with the given vector dimension.
+
+    Args:
+        embedding_dimension: Number of dimensions for the embedding vector column.
+
+    Returns:
+        DDL statement for the chunks table.
+    """
+    return f"""\
 CREATE TABLE IF NOT EXISTS chunks (
     id SERIAL PRIMARY KEY,
     document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     section_path TEXT NOT NULL DEFAULT '',
     chunk_index INTEGER NOT NULL DEFAULT 0,
-    embedding vector(1536) NOT NULL,
-    metadata JSONB DEFAULT '{}',
+    embedding vector({embedding_dimension}) NOT NULL,
+    metadata JSONB DEFAULT '{{}}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 """
+
+
+#: Default constant for backward compatibility and tests.
+CHUNKS_TABLE_SQL: Final[str] = chunks_table_sql()
 
 CHUNKS_INDEX_SQL: Final[str] = """\
 CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks (document_id);
@@ -109,44 +125,62 @@ class Migration:
     sql: str
 
 
-#: Ordered list of all migrations. New migrations must be appended.
-MIGRATIONS: Final[list[Migration]] = [
-    Migration(
-        version=1,
-        description="Create documents table",
-        sql=DOCUMENTS_TABLE_SQL,
-    ),
-    Migration(
-        version=2,
-        description="Create audit_log table",
-        sql=AUDIT_LOG_TABLE_SQL,
-    ),
-    Migration(
-        version=3,
-        description="Create indexes for documents",
-        sql=DOCUMENTS_INDEX_SQL,
-    ),
-    Migration(
-        version=4,
-        description="Create indexes for audit_log",
-        sql=AUDIT_LOG_INDEX_SQL,
-    ),
-    Migration(
-        version=5,
-        description="Enable pgvector extension",
-        sql=PGVECTOR_EXTENSION_SQL,
-    ),
-    Migration(
-        version=6,
-        description="Create chunks table for vector storage",
-        sql=CHUNKS_TABLE_SQL,
-    ),
-    Migration(
-        version=7,
-        description="Create HNSW index on chunks embedding",
-        sql=CHUNKS_INDEX_SQL,
-    ),
-]
+def get_migrations(
+    embedding_dimension: int = DEFAULT_EMBEDDING_DIMENSION,
+) -> list[Migration]:
+    """Build the ordered list of all migrations.
+
+    The chunks table (v6) uses *embedding_dimension* to size the
+    ``vector`` column, allowing different embedding providers.
+
+    Args:
+        embedding_dimension: Number of dimensions for the embedding
+            vector column.  Defaults to ``1536`` (OpenAI).
+
+    Returns:
+        Ordered list of :class:`Migration` objects.
+    """
+    return [
+        Migration(
+            version=1,
+            description="Create documents table",
+            sql=DOCUMENTS_TABLE_SQL,
+        ),
+        Migration(
+            version=2,
+            description="Create audit_log table",
+            sql=AUDIT_LOG_TABLE_SQL,
+        ),
+        Migration(
+            version=3,
+            description="Create indexes for documents",
+            sql=DOCUMENTS_INDEX_SQL,
+        ),
+        Migration(
+            version=4,
+            description="Create indexes for audit_log",
+            sql=AUDIT_LOG_INDEX_SQL,
+        ),
+        Migration(
+            version=5,
+            description="Enable pgvector extension",
+            sql=PGVECTOR_EXTENSION_SQL,
+        ),
+        Migration(
+            version=6,
+            description="Create chunks table for vector storage",
+            sql=chunks_table_sql(embedding_dimension),
+        ),
+        Migration(
+            version=7,
+            description="Create HNSW index on chunks embedding",
+            sql=CHUNKS_INDEX_SQL,
+        ),
+    ]
+
+
+#: Default migration list for backward compatibility.
+MIGRATIONS: Final[list[Migration]] = get_migrations()
 
 
 # ---------------------------------------------------------------------------
@@ -162,15 +196,24 @@ class MigrationRunner:
 
     Args:
         pool: An asyncpg connection pool.
+        embedding_dimension: Vector dimension for the chunks table.
+            Defaults to ``1536``.
     """
 
-    def __init__(self, pool: asyncpg.Pool[asyncpg.Record]) -> None:
+    def __init__(
+        self,
+        pool: asyncpg.Pool[asyncpg.Record],
+        *,
+        embedding_dimension: int = DEFAULT_EMBEDDING_DIMENSION,
+    ) -> None:
         """Initialize with an asyncpg connection pool.
 
         Args:
             pool: An active asyncpg connection pool.
+            embedding_dimension: Vector dimension for the chunks table.
         """
         self._pool = pool
+        self._embedding_dimension = embedding_dimension
 
     async def _ensure_migration_table(self, conn: asyncpg.Connection[asyncpg.Record]) -> None:
         """Create the schema_migrations table if it does not exist."""
@@ -186,12 +229,13 @@ class MigrationRunner:
 
         Args:
             migrations: Optional list of migrations to consider.
-                Defaults to :data:`MIGRATIONS`.
+                Defaults to the result of
+                :func:`get_migrations(embedding_dimension)`.
 
         Returns:
             The list of migrations that were applied.
         """
-        target = migrations if migrations is not None else MIGRATIONS
+        target = migrations if migrations is not None else get_migrations(self._embedding_dimension)
 
         applied: list[Migration] = []
         async with self._pool.acquire() as conn, conn.transaction():
@@ -237,7 +281,7 @@ class MigrationRunner:
             await self._ensure_migration_table(conn)
             applied_versions = await self._get_applied_versions(conn)
 
-        target = MIGRATIONS
+        target = get_migrations(self._embedding_dimension)
         return [
             {
                 "version": m.version,

@@ -125,7 +125,7 @@ class ApplicationBootstrap:
         await self._db.initialize()
         logger.info("Bootstrap: database pool initialized.")
 
-        runner = MigrationRunner(self._db.pool)
+        runner = MigrationRunner(self._db.pool, embedding_dimension=settings.embedding_dimension)
         applied = await runner.run()
         if applied:
             logger.info(
