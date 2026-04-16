@@ -22,7 +22,7 @@ dependencies = [
     "asyncpg>=0.29",
     "python-dotenv>=1.0",
     "openai>=1.0",
-    "numpy>=1.26",
+    "numpy>=2.4.4",
 ]
 
 [project.urls]
