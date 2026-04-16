@@ -20,7 +20,7 @@ classifiers = [
 dependencies = [
     "mcp",
     "asyncpg>=0.29",
-    "python-dotenv>=1.0",
+    "python-dotenv>=1.2.2",
     "openai>=1.0",
     "numpy>=1.26",
 ]
